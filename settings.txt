@@ -1,0 +1,2 @@
+deltaCompareMode=SESSION
+deltaNumberShown=false
