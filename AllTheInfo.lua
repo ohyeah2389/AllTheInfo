@@ -24,12 +24,12 @@ local settings = {
 
 local displaySettings = {
     positions = {
-        [1680] = {
+        [1680] = { -- 1050p
             dash = { offset = 1040 },
             delta = { offset = 800 }
         },
         [2560] = { -- 1440p
-            dash = { offset = 160 },
+            dash = { offset = 155 },
             delta = { offset = 1050 }
         },
         [7680] = { -- Triple screen
@@ -41,8 +41,8 @@ local displaySettings = {
             delta = { offset = 865 }
         },
         default = { -- Default fallback
-            dash = { offset = 1160 },
-            delta = { offset = 900 }
+            dash = { offset = 155 },
+            delta = { offset = 865 }
         }
     }
 }
@@ -89,6 +89,7 @@ local assistColors = {
     abs = rgbm(1, 0.2, 0.2, 0.7),
     tc = rgbm(0, 0.2, 1, 0.7)
 }
+
 
 -- Constants
 local newTimeFlashDuration = 0.15  -- Duration of each flash (on/off) - faster flashing
@@ -403,7 +404,7 @@ end
 
 
 -- Initialize paths after state variables are declared
-trackDataFile = string.format("%s/lua/AllTheInfo/track_records_%s.ini",
+trackDataFile = string.format("%s/lua/AllTheInfo/track_records/%s.ini",
     ac.getFolder(ac.FolderID.ACApps),
     ac.getCarID(0))
 
@@ -424,10 +425,15 @@ end
 
 
 local function loadTrackRecords()
-    -- Create directory if it doesn't exist
-    local dir = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo'
-    if not io.exists(dir) then
-        os.execute('mkdir "' .. dir .. '"')
+    -- Create directories if they don't exist
+    local baseDir = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo'
+    local recordsDir = baseDir .. '/track_records'
+    
+    if not io.exists(baseDir) then
+        os.execute('mkdir "' .. baseDir .. '"')
+    end
+    if not io.exists(recordsDir) then
+        os.execute('mkdir "' .. recordsDir .. '"')
     end
 
     -- Try to load existing records
@@ -1201,7 +1207,7 @@ function drawDash()
                         color = rgbm(1, 0, 0, 1) -- Red
                     end
                 elseif isOverShiftPoint and (car.gear ~= car.gearCount) then
-                    color = rgbm(0, 0.25, 1, 1) -- Blue when over shift point
+                    color = rgbm(0, 0.5, 1, 2) -- Blue when over shift point
                 else
                     if i >= numSections - 2 then
                         color = rgbm(0.8, 0.2, 0.2, 1) -- Red

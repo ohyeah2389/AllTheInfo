@@ -2,8 +2,8 @@
     "Lua.workspace.library": [
         "G:\\SteamLibrary\\steamapps\\common\\assettocorsa\\extension\\internal\\lua-sdk\\ac_car_scriptable_display",
         "G:\\SteamLibrary\\steamapps\\common\\assettocorsa\\extension\\internal\\lua-sdk\\ac_apps",
-        "g:\\SteamLibrary\\steamapps\\common\\assettocorsa/extension/internal/lua-sdk/ac_apps",
-        "g:\\SteamLibrary\\steamapps\\common\\assettocorsa/extension/internal/lua-shared"
+        "c:\\Steam\\steamapps\\common\\assettocorsa/extension/internal/lua-sdk/ac_apps",
+        "c:\\Steam\\steamapps\\common\\assettocorsa/extension/internal/lua-shared"
     ],
     "Lua.workspace.preloadFileSize": 2000,
     "Lua.workspace.checkThirdParty": false,
@@ -12,6 +12,6 @@
     "Lua.runtime.path": [
         "?.lua",
         "?/init.lua",
-        "g:\\SteamLibrary\\steamapps\\common\\assettocorsa/extension/internal/lua-?.lua"
+        "c:\\Steam\\steamapps\\common\\assettocorsa/extension/internal/lua-?.lua"
     ]
 }
