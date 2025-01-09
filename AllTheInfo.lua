@@ -2540,7 +2540,7 @@ function script.windowSettings(dt)
             ui.text("Are you sure you want to delete the personal best record\nfor the current car and track combination?")
             ui.newLine()
             if ui.button("Yes") then
-                -- Delete PB file if it exists - use .txt extension to match savePersonalBest()
+                -- Delete PB file if it exists, use .txt extension to match savePersonalBest()
                 local pbFile = string.format("%s/%s.txt", personalBestDir, getTrackIdentifier())
                 if io.exists(pbFile) then
                     os.remove(pbFile)
