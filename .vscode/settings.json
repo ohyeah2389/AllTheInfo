@@ -13,5 +13,10 @@
         "?.lua",
         "?/init.lua",
         "c:\\Steam\\steamapps\\common\\assettocorsa/extension/internal/lua-?.lua"
+    ],
+    "Lua.diagnostics.disable": [
+        "undefined-field",
+        "deprecated",
+        "need-check-nil"
     ]
 }

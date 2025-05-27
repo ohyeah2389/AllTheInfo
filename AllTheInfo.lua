@@ -208,6 +208,11 @@ local lastSessionTimeLeft = 0  -- Track previous session time
 local sessionTimeJumpThreshold = 10  -- Time jump threshold in seconds
 
 
+function FuelDataPoint.new(usage, weight)
+    return { usage = usage, weight = weight, lapTime = 0 }
+end
+
+
 local function getNextMode(currentMode)
     local modes = {}
     for mode in pairs(deltaCompareModes) do
@@ -324,7 +329,8 @@ local function findPeakGrip(lut)
             local value = tonumber(parts[2])
             if value then
                 peak = math.max(peak, value)
-                ac.debug("Found value:", value, "Current peak:", peak)
+                ac.debug("Found value:", value)
+                ac.debug("Peak grip:", peak)
             end
         end
     end
@@ -1120,13 +1126,9 @@ local function loadSettings()
     end
 end
 
+
 loadPersonalBest()
 loadSettings()
-
-
-function FuelDataPoint.new(usage, weight)
-    return { usage = usage, weight = weight, lapTime = 0 }
-end
 
 
 function drawDash()
@@ -2577,6 +2579,7 @@ function script.windowDelta(dt)
         ui.transparentWindow("AllTheInfo_Delta", deltabarPosition, vec2(424, 31), true, true, function() drawDeltabar() end)
     end
 end
+
 
 ---@diagnostic disable: duplicate-set-field
 function script.update(dt)
