@@ -1,2 +1,2 @@
 deltaCompareMode=SESSION
-deltaNumberShown=false
+deltaNumberShown=true

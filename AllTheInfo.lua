@@ -214,6 +214,11 @@ local SESSION_BEST_FLASH_COUNT = 8
 local lastSessionTimeLeft = 0       -- Track previous session time
 local sessionTimeJumpThreshold = 10 -- Time jump threshold in seconds
 
+-- Track if the current circuit has a proper centerline
+local trackHasCenterline = true
+local centerlineCheckTime = 0
+local centerlineCheckDuration = 10 -- Check for 10 seconds
+
 
 function FuelDataPoint.new(usage, weight)
     return { usage = usage, weight = weight, lapTime = 0 }
@@ -474,7 +479,6 @@ local function loadTrackRecords()
 end
 local trackRecords = loadTrackRecords()
 
--- Update the resetSessionData function to be more selective
 local function resetSessionData()
     -- Reset lap tracking
     previousLapCount = 0
@@ -514,6 +518,10 @@ local function resetSessionData()
 
     -- Reset max boost tracking
     maxSeenBoost = 0
+
+    -- Reset centerline detection for new session
+    trackHasCenterline = true
+    centerlineCheckTime = 0
 
     print("Session data reset completed - Lap count:" .. car.lapCount)
 end
@@ -621,6 +629,11 @@ end
 
 
 local function getLapDelta()
+    -- Early exit if track doesn't have a centerline
+    if not trackHasCenterline then
+        return nil, nil
+    end
+
     local deltaT = ac.getGameDeltaT()
     local currentLapTime = car.lapTimeMs
     local lapProgress = car.splinePosition
@@ -2293,15 +2306,16 @@ function drawDeltabar()
     else
         if config.delta.numberShown then
             -- No delta available
+            local message = trackHasCenterline and "NO DELTA AVAILABLE" or "NO CENTERLINE - DELTA DISABLED"
             ui.dwriteDrawTextClipped(
-                "NO DELTA AVAILABLE",
+                message,
                 18,
                 vec2(0, 1),
                 vec2(426, 30),
                 ui.Alignment.Center,
                 ui.Alignment.Center,
                 false,
-                rgbm(1, 1, 1, (math.sin(sim.time * 0.003) + 2) / 3)
+                rgbm(1, 1, 1, trackHasCenterline and (math.sin(sim.time * 0.003) + 2) / 3 or 0.6)
             )
         end
     end
@@ -2576,6 +2590,22 @@ end
 
 ---@diagnostic disable: duplicate-set-field
 function script.update()
+    -- Check for centerline availability during the first 10 seconds
+    if centerlineCheckTime < centerlineCheckDuration then
+        centerlineCheckTime = centerlineCheckTime + ac.getGameDeltaT()
+
+        -- If we're in a lap with reasonable time but splinePosition is still 0, assume no centerline
+        if car.lapTimeMs > 5000 and car.splinePosition == 0 then
+            if trackHasCenterline then
+                ac.log("Track has no AI centerline - delta calculations disabled")
+                trackHasCenterline = false
+            end
+        elseif car.splinePosition > 0.001 then
+            -- We found a valid spline position, track has centerline
+            trackHasCenterline = true
+        end
+    end
+
     -- Check for session change by looking for large time remaining jumps
     local currentSessionTime = sim.sessionTimeLeft / 1000 -- Convert to seconds
     local timeDelta = math.abs(currentSessionTime - lastSessionTimeLeft)
@@ -2691,8 +2721,55 @@ function script.update()
         lastLapFuelLevel = car.fuel
 
         -- Store best lap data if the lap was valid and has a valid time
+        -- This works regardless of centerline availability
         if not currentLapIsInvalid and lastLapValue > 0 then
-            storeBestLap()
+            -- Only store delta data if we have a centerline
+            if trackHasCenterline then
+                storeBestLap()
+            else
+                -- For tracks without centerline, just update the lap times without position/time lists
+                lastLapWasSessionBest = false
+                lastLapWasPersonalBest = false
+
+                -- Update session best if this lap is faster
+                if bestLapValue == 0 or lastLapValue < bestLapValue then
+                    bestLapValue = lastLapValue
+                    lastLapWasSessionBest = true
+                    sessionBestWasSetTime = os.clock()
+                    sessionBestFlashStartTime = os.clock()
+                end
+
+                -- Update personal best if this lap is faster
+                if personalBestLapValue == 0 or lastLapValue < personalBestLapValue then
+                    personalBestLapValue = lastLapValue
+                    lastLapWasPersonalBest = true
+                    personalBestWasSetTime = os.clock()
+                    personalBestFlashStartTime = os.clock()
+                    -- Save personal best (without position/time data)
+                    savePersonalBest()
+                end
+
+                -- Update all-time best if this lap is faster
+                if allTimeBestLap == 0 or lastLapValue < allTimeBestLap then
+                    allTimeBestLap = lastLapValue
+                    trackRecords[getTrackIdentifier()] = {
+                        time = lastLapValue,
+                        date = os.date("%Y-%m-%d %H:%M:%S")
+                    }
+                    -- Save to INI file
+                    local success, ini = pcall(function()
+                        local newIni = ac.INIConfig.new()
+                        for track, data in pairs(trackRecords) do
+                            if type(data) == 'table' and type(data.time) == 'number' then
+                                newIni:set(track, 'time', tostring(data.time))
+                                newIni:set(track, 'date', data.date or '')
+                            end
+                        end
+                        newIni:save(trackDataFile)
+                        return newIni
+                    end)
+                end
+            end
         end
 
         previousLapCount = lapCount
@@ -2708,8 +2785,12 @@ function script.update()
         maxSeenBoost = car.turboBoost
     end
 
-    -- Calculate delta once per update
-    currentDelta, currentDeltaChangeRate = getLapDelta()
+    -- Calculate delta once per update (only if track has centerline)
+    if trackHasCenterline then
+        currentDelta, currentDeltaChangeRate = getLapDelta()
+    else
+        currentDelta, currentDeltaChangeRate = nil, nil
+    end
 
     -- Debug output for delta calculation
     ac.debug("delta", currentDelta)
@@ -2758,7 +2839,10 @@ function script.update()
     end
     ac.debug("earlyExitReason", earlyExitReason)
 
-    previousLapProgressValue = car.splinePosition
+    -- Only update previousLapProgressValue if we have a centerline
+    if trackHasCenterline then
+        previousLapProgressValue = car.splinePosition
+    end
 
     -- Track when time expires and store the lap count
     if sim.raceSessionType == ac.SessionType.Race then
