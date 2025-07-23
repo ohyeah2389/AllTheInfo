@@ -8,6 +8,7 @@ Font_whiteRabbit = ui.DWriteFont("fonts/whitrabt.ttf")
 
 local deltabar = require("deltabar")
 local dash = require("dash")
+local driftbar = require("driftbar")
 
 -- UI Settings
 Config = {
@@ -23,8 +24,11 @@ Config = {
         extrapolationTime = 0.5,
         resolution = 0.05
     },
+    drift = {
+        numberShown = true,
+    },
     tire = {
-        zeroWearState = 0.9,
+        zeroWearState = 0.94,
         tempThresholds = { 0.4, 0.8, 0.05, 1.2, 1.4 },
         wearThresholds = { 10, 20, 35, 80 }
     },
@@ -35,30 +39,61 @@ Config = {
     flash = {
         duration = 0.15,
         count = 5
+    },
+    appScaleFactor = 1.0
+}
+
+
+local settingsFile = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo/settings.txt'
+
+
+-- Settings configuration table
+local settingsConfig = {
+    deltaCompareMode = {
+        path = {"delta", "compareMode"},
+        type = "string"
+    },
+    deltaNumberShown = {
+        path = {"delta", "numberShown"},
+        type = "boolean"
+    },
+    driftNumberShown = {
+        path = {"drift", "numberShown"},
+        type = "boolean"
+    },
+    appScaleFactor = {
+        path = {"appScaleFactor"},
+        type = "number"
     }
 }
+
 
 local displaySettings = {
     positions = {
         [1680] = { -- 1050p
             dash = { offset = 1040 },
-            delta = { offset = 800 }
+            delta = { offset = 800 },
+            drift = { offset = 560 }
         },
         [2560] = { -- 1440p
             dash = { offset = 155 },
-            delta = { offset = 190 }
+            delta = { offset = 190 },
+            drift = { offset = 225 }
         },
         [7680] = { -- Triple screen
             dash = { offset = 1430 },
-            delta = { offset = 1050 }
+            delta = { offset = 1050 },
+            drift = { offset = 670 }
         },
         [1920] = { -- 1080p
             dash = { offset = 155 },
-            delta = { offset = 190 }
+            delta = { offset = 190 },
+            drift = { offset = 225 }
         },
         default = { -- Default fallback
             dash = { offset = 155 },
-            delta = { offset = 190 }
+            delta = { offset = 190 },
+            drift = { offset = 225 }
         }
     }
 }
@@ -83,9 +118,9 @@ TireTempThresholds = {
 local tireWearConfig = {
     thresholds = {
         transparent = 10, -- Below this % wear is transparent
-        yellow = 20, -- Fade from transparent to yellow up to this %
-        red = 35, -- Fade from yellow to red up to this %
-        black = 80 -- Fade from red to black up to this %
+        yellow = 30, -- Fade from transparent to yellow up to this %
+        red = 60, -- Fade from yellow to red up to this %
+        black = 90 -- Fade from red to black up to this %
     },
     colors = {
         transparent = rgbm(0, 0, 0, 0),
@@ -283,13 +318,12 @@ end
 
 
 local function getElementPosition(elementWidth, elementType)
-    local horizontalCenter = (sim.windowWidth / 2) - (elementWidth / 2)
+    local horizontalCenter = (sim.windowWidth / 2) - ((elementWidth / 2) * Config.appScaleFactor)
     local preset = displaySettings.positions[sim.windowWidth] or displaySettings.positions.default
-    local verticalOffset = preset[elementType].offset
+    local verticalOffset = preset[elementType].offset * Config.appScaleFactor
 
     return vec2(horizontalCenter, sim.windowHeight - verticalOffset)
 end
-
 
 -- Math helper function, like Map Range in Blender
 function MapRange(n, start, stop, newStart, newStop, clamp)
@@ -404,12 +438,9 @@ function GetTireGripFromWear(wheel)
     -- Get raw grip value from LUT
     local rawGrip = wearLUT:get(vkm)
 
-    -- Rescale grip value:
-    -- 1. Normalize to peak (handles break-in period by using peak as 100%)
-    -- 2. Rescale so that 80% becomes 0% on display
-    local normalizedGrip = rawGrip / peakGrip                                                          -- Now 0-1 relative to peak
-    local displayGrip = (normalizedGrip - Config.tire.zeroWearState) /
-    (1 - Config.tire.zeroWearState)                                                                    -- Rescale 0.8-1.0 to 0-1
+    -- Rescale grip value
+    local normalizedGrip = rawGrip / peakGrip
+    local displayGrip = (normalizedGrip - Config.tire.zeroWearState) / (1 - Config.tire.zeroWearState)
 
     -- Clamp final value to 0-1 range
     displayGrip = math.clamp(displayGrip, 0, 1)
@@ -425,8 +456,6 @@ end
 
 -- Initialize paths after state variables are declared
 trackDataFile = string.format("%s/lua/AllTheInfo/track_records/%s.ini", ac.getFolder(ac.FolderID.ACApps), ac.getCarID(0))
-
-
 personalBestDir = string.format("%s/lua/AllTheInfo/personal_best/%s", ac.getFolder(ac.FolderID.ACApps), ac.getCarID(0))
 
 
@@ -490,8 +519,8 @@ local function resetSessionData()
     -- Reset current lap delta tracking but preserve comparison data
     posList = {}
     timeList = {}
-    currentDelta = nil
-    currentDeltaChangeRate = nil
+    Delta.currentDelta = nil
+    Delta.currentDeltaChangeRate = nil
     lastGoodDelta = nil
     lastGoodDeltaTime = 0
 
@@ -503,7 +532,6 @@ local function resetSessionData()
     -- Reset trend tracking
     prevt = 0
     prevt2 = 0
-    ttb = 0
     trendBuffer = {}
     trendBufferIndex = 1
 
@@ -640,7 +668,7 @@ local function getLapDelta()
     -- Combined early exits and lap reset
     if currentLapTime > 500 and currentLapTime < 1000 then
         posList, timeList = {}, {}
-        previousLapProgressValue, prevt, prevt2, ttb = 0, 0, 0, 0
+        previousLapProgressValue, prevt, prevt2 = 0, 0, 0
         trendBuffer, trendBufferIndex = {}, 1
         CurrentLapIsInvalid, lastGoodDelta, lastGoodDeltaTime = false, nil, 0
     end
@@ -775,7 +803,6 @@ local function storeBestLap()
         previousLapProgressValue = 0
         prevt = 0
         prevt2 = 0
-        ttb = 0
     end
 end
 
@@ -963,7 +990,7 @@ function EstimateRemainingLaps()
         local timeLeft = (sim.sessionTimeLeft / 1000)
         local isTimedRace = session.isTimedRace
         local predictiveLapValue = (Config.delta.compareMode == "SESSION" and BestLapValue or PersonalBestLapValue) +
-        ((currentDelta ~= nil and currentDelta or 0) * 1000)
+        ((Delta.currentDelta ~= nil and Delta.currentDelta or 0) * 1000)
         local referenceLapValue = BestLapValue ~= 0 and BestLapValue or LastLapValue ~= 0 and LastLapValue or
         PersonalBestLapValue
         referenceLapValue = predictiveLapValue > 0 and predictiveLapValue < referenceLapValue and predictiveLapValue or
@@ -1052,8 +1079,34 @@ local function calculateFuelWeight(lapTime, fuelUsed)
     return 0 -- Any lap more than 10% slower gets zero weight
 end
 
+local function getConfigValue(path)
+    local value = Config
+    for _, key in ipairs(path) do
+        value = value[key]
+        if value == nil then return nil end
+    end
+    return value
+end
 
-local settingsFile = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo/settings.txt'
+local function setConfigValue(path, value)
+    local current = Config
+    for i = 1, #path - 1 do
+        current = current[path[i]]
+        if current == nil then return false end
+    end
+    current[path[#path]] = value
+    return true
+end
+
+local function convertValue(value, valueType)
+    if valueType == "boolean" then
+        return value == "true"
+    elseif valueType == "number" then
+        return tonumber(value)
+    else
+        return value
+    end
+end
 
 function SaveSettings()
     -- Create directory if it doesn't exist
@@ -1064,8 +1117,12 @@ function SaveSettings()
 
     local file = io.open(settingsFile, "w")
     if file then
-        file:write(string.format("deltaCompareMode=%s\n", Config.delta.compareMode))
-        file:write(string.format("deltaNumberShown=%s\n", tostring(Config.delta.numberShown)))
+        for key, config in pairs(settingsConfig) do
+            local value = getConfigValue(config.path)
+            if value ~= nil then
+                file:write(string.format("%s=%s\n", key, tostring(value)))
+            end
+        end
         file:close()
     end
 end
@@ -1077,10 +1134,10 @@ local function loadSettings()
             for line in file:lines() do
                 local key, value = line:match("(.+)=(.+)")
                 if key and value then
-                    if key == "deltaCompareMode" then
-                        Config.delta.compareMode = value
-                    elseif key == "deltaNumberShown" then
-                        Config.delta.numberShown = value == "true"
+                    local config = settingsConfig[key]
+                    if config then
+                        local convertedValue = convertValue(value, config.type)
+                        setConfigValue(config.path, convertedValue)
                     end
                 end
             end
@@ -1095,6 +1152,7 @@ loadSettings()
 
 local dashPosition = getElementPosition(700, "dash")
 local deltabarPosition = getElementPosition(424, "delta")
+local driftbarPosition = getElementPosition(424, "drift")
 
 
 -- MARK: script.window
@@ -1102,7 +1160,21 @@ local deltabarPosition = getElementPosition(424, "delta")
 
 function script.windowMain(dt)
     if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Dash", dashPosition, vec2(700, 150), true, true, function() dash.draw() end)
+        ui.transparentWindow("AllTheInfo_Dash", dashPosition, vec2(700, 150) * Config.appScaleFactor, true, true, function() dash.draw() end)
+    end
+end
+
+
+function script.windowDelta()
+    if not ac.isInReplayMode() then
+        ui.transparentWindow("AllTheInfo_Delta", deltabarPosition, vec2(424, 31) * Config.appScaleFactor, true, true, function() deltabar.draw() end)
+    end
+end
+
+
+function script.windowDrift()
+    if not ac.isInReplayMode() then
+        ui.transparentWindow("AllTheInfo_Drift", driftbarPosition, vec2(424, 31) * Config.appScaleFactor, true, true, function() driftbar.draw() end)
     end
 end
 
@@ -1128,10 +1200,33 @@ function script.windowSettings(dt)
         changed = true
     end
 
+    ui.newLine()
+
+    ui.text("Show Drift Angle:")
+    if ui.checkbox("Show", Config.drift.numberShown) then
+        Config.drift.numberShown = not Config.drift.numberShown
+        changed = true
+    end
+
+    ui.newLine()
+
+    ui.text("App Scale Factor:")
+    local newScale, scaleChanged = ui.slider("##appScale", Config.appScaleFactor, 1.0, 5.0, "Scale: %.1fx", 1)
+    if scaleChanged then
+        Config.appScaleFactor = newScale
+        -- Recalculate positions when scale changes
+        dashPosition = getElementPosition(700, "dash")
+        deltabarPosition = getElementPosition(424, "delta")
+        driftbarPosition = getElementPosition(424, "drift")
+        changed = true
+    end
+
     if changed then
         SaveSettings()
     end
+
     ui.newLine()
+
     ui.text("Race Fuel Simulation:")
 
     if ui.checkbox("Enable Simulation", raceSimEnabled) then
@@ -1232,15 +1327,6 @@ function script.windowSettings(dt)
         UIstate.sessionBestFlashStartTime = os.clock()
     end
 end
-
-
-function script.windowDelta()
-    if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Delta", deltabarPosition, vec2(424, 31), true, true, function() deltabar.draw() end)
-    end
-end
-
-
 -- MARK: script.update
 
 
@@ -1400,7 +1486,7 @@ function script.update()
                     PersonalBestLapValue = LastLapValue
                     LastLapWasPersonalBest = true
                     PersonalBestWasSetTime = os.clock()
-                    personalBestFlashStartTime = os.clock()
+                    UIstate.personalBestFlashStartTime = os.clock()
                     -- Save personal best (without position/time data)
                     savePersonalBest()
                 end
@@ -1449,8 +1535,8 @@ function script.update()
     end
 
     -- Debug output for delta calculation
-    ac.debug("delta", currentDelta)
-    ac.debug("deltaChangeRate", currentDeltaChangeRate)
+    ac.debug("delta", Delta.currentDelta)
+    ac.debug("deltaChangeRate", Delta.currentDeltaChangeRate)
     ac.debug("currentLapTime", car.lapTimeMs)
     ac.debug("lapProgress", car.splinePosition)
     ac.debug("wheelsOutside", car.wheelsOutside)

@@ -4,9 +4,11 @@ local sim = ac.getSim()
 local dash = {}
 
 function dash.draw()
-    ui.drawRectFilled(vec2(0, 0), vec2(700, 150), rgbm(0, 0, 0, 0.25), 10, ui.CornerFlags.All)
-
     ui.pushDWriteFont(Font_whiteRabbit)
+
+    ui.beginScale()
+
+    ui.drawRectFilled(vec2(0, 0), vec2(700, 150), rgbm(0, 0, 0, 0.25), 10, ui.CornerFlags.All)
 
     -- Load all-time best for current track if not already loaded
     if AllTimeBestLap == 0 and TrackRecords[GetTrackIdentifier()] then
@@ -175,7 +177,7 @@ function dash.draw()
         false,
         rgbm(1, 1, 1, 1)
     )
-    local delta, deltaChangeRate = currentDelta, currentDeltaChangeRate
+    local delta, deltaChangeRate = Delta.currentDelta, Delta.currentDeltaChangeRate
     local timeText
     local bgColor = nil
     if delta == nil then
@@ -1051,6 +1053,7 @@ function dash.draw()
         Config.rpm.shiftLightsEnabled = not Config.rpm.shiftLightsEnabled
     end
 
+    ui.endPivotScale(Config.appScaleFactor, vec2(0, 0))
 
     ui.popDWriteFont()
 end

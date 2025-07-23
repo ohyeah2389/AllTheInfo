@@ -5,6 +5,8 @@ local deltabar = {}
 function deltabar.draw()
     ui.pushDWriteFont(Font_whiteRabbit)
 
+    ui.beginScale()
+
     ui.drawRectFilled(vec2(0, 0), vec2(424, 31), rgbm(0, 0, 0, 0.25), 5, ui.CornerFlags.All)
 
     -- Delta bar settings
@@ -283,6 +285,8 @@ function deltabar.draw()
             rgbm(1, 1, 1, textOpacity)
         )
     end
+
+    ui.endPivotScale(Config.appScaleFactor, vec2(0, 0))
 
     ui.popDWriteFont()
 end
