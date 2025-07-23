@@ -1,2 +1,2 @@
-deltaCompareMode=SESSION
+deltaCompareMode=PERSONAL
 deltaNumberShown=true
