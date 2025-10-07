@@ -401,9 +401,19 @@ function dash.draw()
     )
 
     -- Position display
-    local position = ac.getCarLeaderboardPosition(0) -- Get current car's position
-    local totalCars = ac.getSim().carsCount          -- Get total number of cars
-    local positionText = string.format("%s/%d", position, totalCars)
+    local position = ac.getCarLeaderboardPosition(0)
+    local totalCars = ac.getSim().carsCount
+    local positionText = string.format("%02d/%02d", position, totalCars)
+    local posColor = rgbm(0, 0, 0, 0)
+    if (totalCars > 4) and (position < 4) then
+        if position == 1 then
+            posColor = rgbm(1, 0.85, 0, 0.65) -- Gold
+        elseif position == 2 then
+            posColor = rgbm(0.75, 0.75, 0.75, 0.65) -- Silver
+        else
+            posColor = rgbm(0.8, 0.5, 0.2, 0.65) -- Bronze
+        end
+    end
 
     -- Draw position
     DrawTextWithBackground(
@@ -422,9 +432,9 @@ function dash.draw()
         24,
         200, -- Same X as time and laps values
         98,  -- Same Y as "POS" label
-        100, -- width
+        72, -- width
         16,  -- height
-        nil, -- No background
+        posColor, -- No background
         rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
