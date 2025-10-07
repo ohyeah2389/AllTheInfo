@@ -328,18 +328,19 @@ function dash.draw()
     )
 
     -- Session time and laps remaining display
-    local timeLeft = sim.sessionTimeLeft / 1000
-    local isTimedRace = timeLeft > 0
+    local timeLeftSec = sim.sessionTimeLeft / 1000
+    local isTimedRace = timeLeftSec > 0
+    local timeLeftFade = timeLeftSec <= 0 and 1 or math.smoothstep(MapRange(math.abs(timeLeftSec), 5.5, 10, 0, 1, true) ^ 0.5)
 
     -- Time remaining display
     local timeRemainingText
     if isTimedRace then
-        local hours = math.floor(timeLeft / 3600)
-        local minutes = math.floor((timeLeft % 3600) / 60)
-        local seconds = math.floor(timeLeft % 60)
+        local hours = math.floor(timeLeftSec / 3600)
+        local minutes = math.floor((timeLeftSec % 3600) / 60)
+        local seconds = math.floor(timeLeftSec % 60)
 
         if hours > 0 then
-            timeRemainingText = string.format("%d:%02d:%02d", hours, minutes, seconds)
+            timeRemainingText = string.format("%d:%02d", hours, minutes)
         else
             timeRemainingText = string.format("%02d:%02d", minutes, seconds)
         end
@@ -367,7 +368,7 @@ function dash.draw()
         100, -- width
         16,  -- height
         nil, -- No background
-        timeLeft > 0 and rgbm(1, 1, 1, 1) or rgbm(1, 1, 1, 0.5),
+        timeLeftSec > 0 and rgbm(1, 1, 1, 1 * timeLeftFade) or rgbm(1, 1, 1, 0.5),
         ui.Alignment.Start
     )
 
@@ -395,7 +396,7 @@ function dash.draw()
         100, -- width
         16,  -- height
         nil, -- No background
-        timeLeft > 0 and rgbm(1, 1, 1, 0.5) or rgbm(1, 1, 1, 1),
+        timeLeftSec > 0 and rgbm(1, 1, 1, 0.5) or rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
 
