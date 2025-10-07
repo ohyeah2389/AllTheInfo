@@ -954,20 +954,13 @@ end
 
 function GetPressureColor(current, optimal)
     local delta = current - optimal
-    local pressureColors = {
-        low = rgbm(0.2, 0, 0.4, 1),   -- Purple for too low
-        optimal = rgbm(0, 0.5, 0, 1), -- Deep green for optimal
-        high = rgbm(0.6, 0, 0, 1)     -- Dark red for too high
-    }
 
-    local optimalRange = 0.5    -- Within 0.5 PSI is considered optimal
-    local transitionRange = 1.0 -- Range over which colors blend
-
-    if math.abs(delta) < optimalRange then
-        return pressureColors.optimal
+    if math.abs(delta) < optimalPressureRange then
+        return PressureColors.optimal
     elseif delta < 0 then
         -- Interpolate between purple and green
-        local t = math.min(math.abs(delta) - optimalRange, transitionRange) / transitionRange
+        local t = math.min(math.abs(delta) - optimalPressureRange, pressureTransitionRange) / pressureTransitionRange
+        t = math.smoothstep(t)
         return rgbm(
             PressureColors.low.r * t + PressureColors.optimal.r * (1 - t),
             PressureColors.low.g * t + PressureColors.optimal.g * (1 - t),
@@ -976,7 +969,8 @@ function GetPressureColor(current, optimal)
         )
     else
         -- Interpolate between green and red
-        local t = math.min(delta - optimalRange, transitionRange) / transitionRange
+        local t = math.min(delta - optimalPressureRange, pressureTransitionRange) / pressureTransitionRange
+        t = math.smoothstep(t)
         return rgbm(
             PressureColors.optimal.r * (1 - t) + PressureColors.high.r * t,
             PressureColors.optimal.g * (1 - t) + PressureColors.high.g * (1 - t),
