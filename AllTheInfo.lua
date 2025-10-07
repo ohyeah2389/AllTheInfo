@@ -83,7 +83,7 @@ local displaySettings = {
         [7680] = { -- Triple screen
             dash = { offset = 1430 },
             delta = { offset = 1050 },
-            drift = { offset = 670 }
+            drift = { offset = 1050 }
         },
         [1920] = { -- 1080p
             dash = { offset = 155 },
@@ -187,7 +187,6 @@ local trendBufferIndex = 1 -- Current position in buffer
 local previousLapCount = 0
 local previousLapProgressValue = 0
 CurrentLapIsInvalid = false
-PreviousLapValidityValue = false
 LastLapValue = 0
 BestLapValue = 0
 PersonalBestLapValue = 0
@@ -512,7 +511,6 @@ local function resetSessionData()
     previousLapCount = 0
     previousLapProgressValue = 0
     CurrentLapIsInvalid = false
-    PreviousLapValidityValue = false
     LastLapValue = 0
     BestLapValue = 0 -- Reset session best
 
@@ -741,9 +739,11 @@ local function getLapDelta()
 end
 
 
-local function storeBestLap()
-    -- Only store if we have enough data points and the lap was valid
-    if #posList > 10 and not CurrentLapIsInvalid and LastLapValue > 0 then
+local function storeLap()
+    ac.log("Called storeLap()")
+    ac.log("#posList: " .. #posList)
+    ac.log("LastLapValue: " .. LastLapValue)
+    if (#posList > 10) and (not CurrentLapIsInvalid) and (LastLapValue > 0) then
         -- Create copies of the lists BEFORE clearing them
         local posListCopy = table.shallow_copy(posList)
         local timeListCopy = table.shallow_copy(timeList)
@@ -756,7 +756,7 @@ local function storeBestLap()
         LastLapWasPersonalBest = false
 
         -- Update session best if this lap is faster
-        if BestLapValue == 0 or LastLapValue < BestLapValue then
+        if (BestLapValue == 0) or (LastLapValue < BestLapValue) then
             bestPosList = table.shallow_copy(posListCopy)
             bestTimeList = table.shallow_copy(timeListCopy)
             BestLapValue = LastLapValue
@@ -766,7 +766,7 @@ local function storeBestLap()
         end
 
         -- Update personal best if this lap is faster
-        if PersonalBestLapValue == 0 or LastLapValue < PersonalBestLapValue then
+        if (PersonalBestLapValue == 0) or (LastLapValue < PersonalBestLapValue) then
             personalBestPosList = table.shallow_copy(posListCopy)
             personalBestTimeList = table.shallow_copy(timeListCopy)
             PersonalBestLapValue = LastLapValue
@@ -1352,28 +1352,13 @@ function script.update()
     local currentSessionTime = sim.sessionTimeLeft / 1000 -- Convert to seconds
     local timeDelta = math.abs(currentSessionTime - lastSessionTimeLeft)
 
-    -- Only consider it a session change if:
-    -- 1. Time jumps by more than threshold AND
-    -- 2. Current time is larger than previous time (session restart/new session) AND
-    -- 3. We're not just starting up (lastSessionTimeLeft should not be 0) AND
-    -- 4. We're not in the middle of a lap
-    if timeDelta > sessionTimeJumpThreshold and
-        currentSessionTime > lastSessionTimeLeft and
-        lastSessionTimeLeft ~= 0 and
-        car.lapTimeMs < 1000 then -- Only reset near the start of a lap
+    if (timeDelta > sessionTimeJumpThreshold) then
         resetSessionData()
-        print("Session change detected - time delta:" .. timeDelta)
-        print("Current lap time: " .. car.lapTimeMs)
+        print("Session change detected - time delta: " .. timeDelta)
     end
 
     -- Always update last session time, but only after checking for changes
     lastSessionTimeLeft = currentSessionTime
-
-    -- Remove the session index check since we're using time jumps
-    -- if sim.currentSessionIndex ~= currentSessionIndex then
-    --     currentSessionIndex = sim.currentSessionIndex
-    --     resetSessionData()
-    -- end
 
     -- Reset tire LUTs if compound changes
     if car.compoundIndex ~= currentCompoundIndex then
@@ -1392,7 +1377,6 @@ function script.update()
     -- Store best lap data when completing a lap
     if lapCount > previousLapCount then
         LastLapValue = car.previousLapTimeMs
-        PreviousLapValidityValue = CurrentLapIsInvalid -- Store the validity state of the completed lap
 
         -- Calculate and store fuel usage for completed lap
         if lastLapFuelLevel > 0 then
@@ -1418,9 +1402,9 @@ function script.update()
                         -- If new lap is significantly faster (3% or more), reset history
                         if LastLapValue < (avgLapTime * fuelImprovementThreshold) then
                             shouldResetHistory = true
-                            ac.log("Fuel history" .. "Resetting due to significant lap time improvement")
-                            ac.log("New lap" .. LastLapValue)
-                            ac.log("Avg previous" .. avgLapTime)
+                            ac.log("Fuel history reset due to significant lap time improvement")
+                            ac.log("New lap: " .. LastLapValue)
+                            ac.log("Avg previous: " .. avgLapTime)
                         end
                     end
                 end
@@ -1462,64 +1446,15 @@ function script.update()
         -- Update fuel level for next lap
         lastLapFuelLevel = car.fuel
 
-        -- Store best lap data if the lap was valid and has a valid time
-        -- This works regardless of centerline availability
-        if not CurrentLapIsInvalid and LastLapValue > 0 then
-            -- Only store delta data if we have a centerline
-            if Delta.trackHasCenterline then
-                storeBestLap()
-            else
-                -- For tracks without centerline, just update the lap times without position/time lists
-                LastLapWasSessionBest = false
-                LastLapWasPersonalBest = false
-
-                -- Update session best if this lap is faster
-                if BestLapValue == 0 or LastLapValue < BestLapValue then
-                    BestLapValue = LastLapValue
-                    LastLapWasSessionBest = true
-                    SessionBestWasSetTime = os.clock()
-                    SessionBestFlashStartTime = os.clock()
-                end
-
-                -- Update personal best if this lap is faster
-                if PersonalBestLapValue == 0 or LastLapValue < PersonalBestLapValue then
-                    PersonalBestLapValue = LastLapValue
-                    LastLapWasPersonalBest = true
-                    PersonalBestWasSetTime = os.clock()
-                    UIstate.personalBestFlashStartTime = os.clock()
-                    -- Save personal best (without position/time data)
-                    savePersonalBest()
-                end
-
-                -- Update all-time best if this lap is faster
-                if AllTimeBestLap == 0 or LastLapValue < AllTimeBestLap then
-                    AllTimeBestLap = LastLapValue
-                    TrackRecords[GetTrackIdentifier()] = {
-                        time = LastLapValue,
-                        date = os.date("%Y-%m-%d %H:%M:%S")
-                    }
-                    -- Save to INI file
-                    local success, ini = pcall(function()
-                        local newIni = ac.INIConfig.new()
-                        for track, data in pairs(TrackRecords) do
-                            if type(data) == 'table' and type(data.time) == 'number' then
-                                newIni:set(track, 'time', tostring(data.time))
-                                newIni:set(track, 'date', data.date or '')
-                            end
-                        end
-                        newIni:save(trackDataFile)
-                        return newIni
-                    end)
-                end
-            end
-        end
-
+        -- Store lap information
+        storeLap()
+        
+        -- Reset validity and update lap count for new lap
         previousLapCount = lapCount
-        CurrentLapIsInvalid = false -- Reset validity for new lap
+        CurrentLapIsInvalid = false
     end
 
-    -- Track lap validity - check for wheels outside track
-    if car.wheelsOutside > 2 then  -- If more than 2 wheels are outside
+    if car.wheelsOutside > 2 then -- If more than 2 wheels are outside
         CurrentLapIsInvalid = true -- Mark lap as invalid
     end
 
@@ -1549,6 +1484,7 @@ function script.update()
     ac.debug("car.splinePosition", car.splinePosition)
     ac.debug("sim.sessionTimeLeft", sim.sessionTimeLeft)
     ac.debug("sim.sessionsCount", sim.sessionsCount)
+    ac.debug("sim.currentSessionIndex", sim.currentSessionIndex)
 
     -- Tire wear debug information
     ac.debug("tireWear: FL vKM", car.wheels[ac.Wheel.FrontLeft].tyreVirtualKM)

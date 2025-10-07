@@ -1,4 +1,0 @@
-deltaCompareMode=PERSONAL
-deltaNumberShown=true
-driftNumberShown=true
-appScaleFactor=1
