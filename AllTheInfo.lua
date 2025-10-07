@@ -326,18 +326,12 @@ end
 
 -- Math helper function, like Map Range in Blender
 function MapRange(n, start, stop, newStart, newStop, clamp)
-    local value = ((n - start) / (stop - start)) * (newStop - newStart) + newStart
+    local value = math.remap(n, start, stop, newStart, newStop)
 
-    -- Returns basic value
     if not clamp then
         return value
-    end
-
-    -- Returns values constrained to exact range
-    if newStart < newStop then
-        return math.clamp(value, newStart, newStop)
     else
-        return math.clamp(value, newStop, newStart)
+        return math.clamp(value, newStart, newStop)
     end
 end
 
