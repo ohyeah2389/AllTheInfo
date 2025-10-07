@@ -362,17 +362,11 @@ local function findPeakGrip(lut)
     ac.debug("Raw LUT data", serialized)
 
     -- Parse the serialized LUT data to find peak value
-    for line in serialized:gmatch("[^\r\n]+") do
-        -- Remove any whitespace
-        line = line:gsub("%s+", "")
-        -- Split on pipe character
-        local parts = {}
-        for part in line:gmatch("[^|]+") do
-            table.insert(parts, part)
-        end
-
-        if #parts >= 2 then
-            local value = tonumber(parts[2])
+    for entry in serialized:gmatch("|([^|]+)") do
+        -- Split on equals sign
+        local input, output = entry:match("([^=]+)=([^=]+)")
+        if input and output then
+            local value = tonumber(output)
             if value then
                 peak = math.max(peak, value)
                 ac.debug("Found value", value)
