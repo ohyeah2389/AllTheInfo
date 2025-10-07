@@ -469,26 +469,17 @@ function dash.draw()
     local leftBlocksX = centerX - tireBlockWidth - (tireBlockSpacing / 2)
     local rightBlocksX = centerX + (tireBlockSpacing / 2)
 
-    local tireCoreTemps = { car.wheels[ac.Wheel.FrontLeft].tyreCoreTemperature, car.wheels[ac.Wheel.FrontRight]
-        .tyreCoreTemperature, car.wheels[ac.Wheel.RearLeft].tyreCoreTemperature, car.wheels[ac.Wheel.RearRight]
-        .tyreCoreTemperature }
-    local tireInnerTemps = { car.wheels[ac.Wheel.FrontLeft].tyreInsideTemperature, car.wheels[ac.Wheel.FrontRight]
-        .tyreInsideTemperature, car.wheels[ac.Wheel.RearLeft].tyreInsideTemperature, car.wheels[ac.Wheel.RearRight]
-        .tyreInsideTemperature }
-    local tireMiddleTemps = { car.wheels[ac.Wheel.FrontLeft].tyreMiddleTemperature, car.wheels[ac.Wheel.FrontRight]
-        .tyreMiddleTemperature, car.wheels[ac.Wheel.RearLeft].tyreMiddleTemperature, car.wheels[ac.Wheel.RearRight]
-        .tyreMiddleTemperature }
-    local tireOuterTemps = { car.wheels[ac.Wheel.FrontLeft].tyreOutsideTemperature, car.wheels[ac.Wheel.FrontRight]
-        .tyreOutsideTemperature, car.wheels[ac.Wheel.RearLeft].tyreOutsideTemperature, car.wheels[ac.Wheel.RearRight]
-        .tyreOutsideTemperature }
+    local tireCoreTemps = { car.wheels[ac.Wheel.FrontLeft].tyreCoreTemperature, car.wheels[ac.Wheel.FrontRight].tyreCoreTemperature, car.wheels[ac.Wheel.RearLeft].tyreCoreTemperature, car.wheels[ac.Wheel.RearRight].tyreCoreTemperature }
+    local tireInnerTemps = { car.wheels[ac.Wheel.FrontLeft].tyreInsideTemperature, car.wheels[ac.Wheel.FrontRight].tyreInsideTemperature, car.wheels[ac.Wheel.RearLeft].tyreInsideTemperature, car.wheels[ac.Wheel.RearRight].tyreInsideTemperature }
+    local tireMiddleTemps = { car.wheels[ac.Wheel.FrontLeft].tyreMiddleTemperature, car.wheels[ac.Wheel.FrontRight].tyreMiddleTemperature, car.wheels[ac.Wheel.RearLeft].tyreMiddleTemperature, car.wheels[ac.Wheel.RearRight].tyreMiddleTemperature }
+    local tireOuterTemps = { car.wheels[ac.Wheel.FrontLeft].tyreOutsideTemperature, car.wheels[ac.Wheel.FrontRight].tyreOutsideTemperature, car.wheels[ac.Wheel.RearLeft].tyreOutsideTemperature, car.wheels[ac.Wheel.RearRight].tyreOutsideTemperature }
     local tireOptimumTemps = {
         car.wheels[ac.Wheel.FrontLeft].tyreOptimumTemperature or 80,
         car.wheels[ac.Wheel.FrontRight].tyreOptimumTemperature or 80,
         car.wheels[ac.Wheel.RearLeft].tyreOptimumTemperature or 80,
         car.wheels[ac.Wheel.RearRight].tyreOptimumTemperature or 80
     }
-    local tirePressures = { car.wheels[ac.Wheel.FrontLeft].tyrePressure, car.wheels[ac.Wheel.FrontRight].tyrePressure,
-        car.wheels[ac.Wheel.RearLeft].tyrePressure, car.wheels[ac.Wheel.RearRight].tyrePressure }
+    local tirePressures = { car.wheels[ac.Wheel.FrontLeft].tyrePressure, car.wheels[ac.Wheel.FrontRight].tyrePressure, car.wheels[ac.Wheel.RearLeft].tyrePressure, car.wheels[ac.Wheel.RearRight].tyrePressure }
     local tireFL_grip = GetTireGripFromWear(0)
     local tireFR_grip = GetTireGripFromWear(1)
     local tireRL_grip = GetTireGripFromWear(2)

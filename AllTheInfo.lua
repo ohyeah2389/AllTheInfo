@@ -80,7 +80,7 @@ local displaySettings = {
             delta = { offset = 190 },
             drift = { offset = 225 }
         },
-        [7680] = { -- Triple screen
+        [7680] = { -- Triple 1440p
             dash = { offset = 1430 },
             delta = { offset = 1050 },
             drift = { offset = 1050 }
@@ -98,24 +98,33 @@ local displaySettings = {
     }
 }
 
-local tireTempColors = {
-    ambient = rgbm(0.2, 0, 0.4, 1), -- Purple for ambient temperature
-    cold = rgbm(0, 0, 1, 1), -- Blue for cold
-    optimal = rgbm(0, 1, 0, 1), -- Green for optimal temperature
-    hot = rgbm(1, 1, 0, 1), -- Yellow for hot
-    veryhot = rgbm(1, 0, 0, 1), -- Red for very hot
-    explosion = rgbm(0.1, 0.1, 0.1, 1) -- Black for explosion temperature
+TireTempColors = {
+    ambient = rgbm(0.2, 0, 0.4, 1), -- Purple
+    cold = rgbm(0.2, 0.2, 1, 1), -- Blue
+    optimal = rgbm(0, 1, 0, 1), -- Green
+    hot = rgbm(1, 1, 0, 1), -- Yellow
+    veryhot = rgbm(1, 0, 0, 1), -- Red
+    explosion = rgbm(0.1, 0.1, 0.1, 1) -- Black
 }
 
 TireTempThresholds = {
-    ambient = 0.4, -- Purple below this % of optimal
-    cold = 0.8, -- Blue between ambient and this % of optimal
-    optimal = 0.05, -- Green within this +/- % of optimal
-    hot = 1.2, -- Yellow between optimal and this, Red above
-    explosion = 1.4 -- Black above this (near explosion temp)
+    ambient = 0.4,
+    cold = 0.8,
+    optimal = 0.05,
+    hot = 1.2,
+    explosion = 1.4
 }
 
-local tireWearConfig = {
+PressureColors = {
+    low = rgbm(0.15, 0, 0.4, 1),   -- Purple for too low
+    optimal = rgbm(0, 0.5, 0, 1), -- Deep green for optimal
+    high = rgbm(0.8, 0, 0, 1)     -- Dark red for too high
+}
+
+local optimalPressureRange = 0.5    -- Within 0.5 PSI is considered optimal
+local pressureTransitionRange = 2.0 -- Range over which colors blend
+
+TireWearConfig = {
     thresholds = {
         transparent = 10, -- Below this % wear is transparent
         yellow = 30, -- Fade from transparent to yellow up to this %
@@ -848,26 +857,26 @@ function GetTireWearColor(wear)
     local wearPercent = wear * 100
 
     -- Clear/transparent below threshold
-    if wearPercent < tireWearConfig.thresholds.transparent then
-        return tireWearConfig.colors.transparent
+    if wearPercent < TireWearConfig.thresholds.transparent then
+        return TireWearConfig.colors.transparent
         -- Fade from transparent to yellow between thresholds
-    elseif wearPercent < tireWearConfig.thresholds.yellow then
-        local t = (wearPercent - tireWearConfig.thresholds.transparent) /
-            (tireWearConfig.thresholds.yellow - tireWearConfig.thresholds.transparent)
+    elseif wearPercent < TireWearConfig.thresholds.yellow then
+        local t = (wearPercent - TireWearConfig.thresholds.transparent) /
+            (TireWearConfig.thresholds.yellow - TireWearConfig.thresholds.transparent)
         return rgbm(1, 1, 0, t * 0.5)
         -- Fade from yellow to red between thresholds
-    elseif wearPercent < tireWearConfig.thresholds.red then
-        local t = (wearPercent - tireWearConfig.thresholds.yellow) /
-            (tireWearConfig.thresholds.red - tireWearConfig.thresholds.yellow)
+    elseif wearPercent < TireWearConfig.thresholds.red then
+        local t = (wearPercent - TireWearConfig.thresholds.yellow) /
+            (TireWearConfig.thresholds.red - TireWearConfig.thresholds.yellow)
         return rgbm(1, 1 - t, 0, 0.5)
         -- Fade from red to black between thresholds
-    elseif wearPercent < tireWearConfig.thresholds.black then
-        local t = (wearPercent - tireWearConfig.thresholds.red) /
-            (tireWearConfig.thresholds.black - tireWearConfig.thresholds.red)
+    elseif wearPercent < TireWearConfig.thresholds.black then
+        local t = (wearPercent - TireWearConfig.thresholds.red) /
+            (TireWearConfig.thresholds.black - TireWearConfig.thresholds.red)
         return rgbm(1 - t, 0, 0, 0.5 + (t * 0.5))
         -- Full black above threshold
     else
-        return tireWearConfig.colors.black
+        return TireWearConfig.colors.black
     end
 end
 
@@ -889,54 +898,54 @@ function GetTempColor(temp, optimalTemp)
     -- Create color based on temperature ratio
     if ratio < TireTempThresholds.ambient then
         -- Purple (cold/ambient)
-        return tireTempColors.ambient
+        return TireTempColors.ambient
     elseif ratio < TireTempThresholds.cold then
         -- Interpolate between purple and blue
         local t = (ratio - TireTempThresholds.ambient) / (TireTempThresholds.cold - TireTempThresholds.ambient)
         return rgbm(
-            tireTempColors.ambient.r * (1 - t) + tireTempColors.cold.r * t,
-            tireTempColors.ambient.g * (1 - t) + tireTempColors.cold.g * t,
-            tireTempColors.ambient.b * (1 - t) + tireTempColors.cold.b * t,
+            TireTempColors.ambient.r * (1 - t) + TireTempColors.cold.r * t,
+            TireTempColors.ambient.g * (1 - t) + TireTempColors.cold.g * t,
+            TireTempColors.ambient.b * (1 - t) + TireTempColors.cold.b * t,
             1
         )
     elseif ratio < (1 - TireTempThresholds.optimal) then
         -- Interpolate between blue and green
         local t = (ratio - TireTempThresholds.cold) / ((1 - TireTempThresholds.optimal) - TireTempThresholds.cold)
         return rgbm(
-            tireTempColors.cold.r * (1 - t) + tireTempColors.optimal.r * t,
-            tireTempColors.cold.g * (1 - t) + tireTempColors.optimal.g * t,
-            tireTempColors.cold.b * (1 - t) + tireTempColors.optimal.b * t,
+            TireTempColors.cold.r * (1 - t) + TireTempColors.optimal.r * t,
+            TireTempColors.cold.g * (1 - t) + TireTempColors.optimal.g * t,
+            TireTempColors.cold.b * (1 - t) + TireTempColors.optimal.b * t,
             1
         )
     elseif ratio <= (1 + TireTempThresholds.optimal) then
         -- Green (optimal)
-        return tireTempColors.optimal
+        return TireTempColors.optimal
     elseif ratio < TireTempThresholds.hot then
         -- Interpolate between green and yellow
         local t = (ratio - (1 + TireTempThresholds.optimal)) /
         (TireTempThresholds.hot - (1 + TireTempThresholds.optimal))
         return rgbm(
-            tireTempColors.optimal.r * (1 - t) + tireTempColors.hot.r * t,
-            tireTempColors.optimal.g * (1 - t) + tireTempColors.hot.g * t,
-            tireTempColors.optimal.b * (1 - t) + tireTempColors.hot.b * t,
+            TireTempColors.optimal.r * (1 - t) + TireTempColors.hot.r * t,
+            TireTempColors.optimal.g * (1 - t) + TireTempColors.hot.g * t,
+            TireTempColors.optimal.b * (1 - t) + TireTempColors.hot.b * t,
             1
         )
     elseif ratio < TireTempThresholds.explosion then
         -- Interpolate between yellow and red
         local t = (ratio - TireTempThresholds.hot) / (TireTempThresholds.explosion - TireTempThresholds.hot)
         return rgbm(
-            tireTempColors.hot.r * (1 - t) + tireTempColors.veryhot.r * t,
-            tireTempColors.hot.g * (1 - t) + tireTempColors.veryhot.g * t,
-            tireTempColors.hot.b * (1 - t) + tireTempColors.veryhot.b * t,
+            TireTempColors.hot.r * (1 - t) + TireTempColors.veryhot.r * t,
+            TireTempColors.hot.g * (1 - t) + TireTempColors.veryhot.g * t,
+            TireTempColors.hot.b * (1 - t) + TireTempColors.veryhot.b * t,
             1
         )
     else
         -- Interpolate from red to black for explosion temperature
         local t = math.min((ratio - TireTempThresholds.explosion) / 0.1, 1) -- Adjust 0.1 to control fade speed
         return rgbm(
-            tireTempColors.veryhot.r * (1 - t) + tireTempColors.explosion.r * t,
-            tireTempColors.veryhot.g * (1 - t) + tireTempColors.explosion.g * t,
-            tireTempColors.veryhot.b * (1 - t) + tireTempColors.explosion.b * t,
+            TireTempColors.veryhot.r * (1 - t) + TireTempColors.explosion.r * t,
+            TireTempColors.veryhot.g * (1 - t) + TireTempColors.explosion.g * t,
+            TireTempColors.veryhot.b * (1 - t) + TireTempColors.explosion.b * t,
             1
         )
     end
@@ -960,18 +969,18 @@ function GetPressureColor(current, optimal)
         -- Interpolate between purple and green
         local t = math.min(math.abs(delta) - optimalRange, transitionRange) / transitionRange
         return rgbm(
-            pressureColors.low.r * t + pressureColors.optimal.r * (1 - t),
-            pressureColors.low.g * t + pressureColors.optimal.g * (1 - t),
-            pressureColors.low.b * t + pressureColors.optimal.b * (1 - t),
+            PressureColors.low.r * t + PressureColors.optimal.r * (1 - t),
+            PressureColors.low.g * t + PressureColors.optimal.g * (1 - t),
+            PressureColors.low.b * t + PressureColors.optimal.b * (1 - t),
             1
         )
     else
         -- Interpolate between green and red
         local t = math.min(delta - optimalRange, transitionRange) / transitionRange
         return rgbm(
-            pressureColors.optimal.r * (1 - t) + pressureColors.high.r * t,
-            pressureColors.optimal.g * (1 - t) + pressureColors.high.g * (1 - t),
-            pressureColors.optimal.b * (1 - t) + pressureColors.high.b * t,
+            PressureColors.optimal.r * (1 - t) + PressureColors.high.r * t,
+            PressureColors.optimal.g * (1 - t) + PressureColors.high.g * (1 - t),
+            PressureColors.optimal.b * (1 - t) + PressureColors.high.b * t,
             1
         )
     end
