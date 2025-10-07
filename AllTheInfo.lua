@@ -328,10 +328,16 @@ end
 function MapRange(n, start, stop, newStart, newStop, clamp)
     local value = math.remap(n, start, stop, newStart, newStop)
 
+    -- Returns basic value
     if not clamp then
         return value
+    end
+
+    -- Returns values constrained to exact range
+    if newStart < newStop then
+        return math.clampN(value, newStart, newStop)
     else
-        return math.clamp(value, newStart, newStop)
+        return math.clampN(value, newStop, newStart)
     end
 end
 
