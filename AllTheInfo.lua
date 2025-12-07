@@ -52,19 +52,19 @@ local settingsFile = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo/settin
 -- Settings configuration table
 local settingsConfig = {
     deltaCompareMode = {
-        path = {"delta", "compareMode"},
+        path = { "delta", "compareMode" },
         type = "string"
     },
     deltaNumberShown = {
-        path = {"delta", "numberShown"},
+        path = { "delta", "numberShown" },
         type = "boolean"
     },
     driftNumberShown = {
-        path = {"drift", "numberShown"},
+        path = { "drift", "numberShown" },
         type = "boolean"
     },
     appScaleFactor = {
-        path = {"appScaleFactor"},
+        path = { "appScaleFactor" },
         type = "number"
     }
 }
@@ -101,11 +101,11 @@ local displaySettings = {
 }
 
 TireTempColors = {
-    ambient = rgbm(0.2, 0, 0.4, 1), -- Purple
-    cold = rgbm(0.2, 0.2, 1, 1), -- Blue
-    optimal = rgbm(0, 1, 0, 1), -- Green
-    hot = rgbm(1, 1, 0, 1), -- Yellow
-    veryhot = rgbm(1, 0, 0, 1), -- Red
+    ambient = rgbm(0.2, 0, 0.4, 1),    -- Purple
+    cold = rgbm(0.2, 0.2, 1, 1),       -- Blue
+    optimal = rgbm(0, 1, 0, 1),        -- Green
+    hot = rgbm(1, 1, 0, 1),            -- Yellow
+    veryhot = rgbm(1, 0, 0, 1),        -- Red
     explosion = rgbm(0.1, 0.1, 0.1, 1) -- Black
 }
 
@@ -118,7 +118,7 @@ TireTempThresholds = {
 }
 
 PressureColors = {
-    low = rgbm(0.15, 0, 0.4, 1),   -- Purple for too low
+    low = rgbm(0.15, 0, 0.4, 1),  -- Purple for too low
     optimal = rgbm(0, 0.5, 0, 1), -- Deep green for optimal
     high = rgbm(0.8, 0, 0, 1)     -- Dark red for too high
 }
@@ -129,9 +129,9 @@ local pressureTransitionRange = 2.0 -- Range over which colors blend
 TireWearConfig = {
     thresholds = {
         transparent = 10, -- Below this % wear is transparent
-        yellow = 30, -- Fade from transparent to yellow up to this %
-        red = 60, -- Fade from yellow to red up to this %
-        black = 90 -- Fade from red to black up to this %
+        yellow = 30,      -- Fade from transparent to yellow up to this %
+        red = 60,         -- Fade from yellow to red up to this %
+        black = 90        -- Fade from red to black up to this %
     },
     colors = {
         transparent = rgbm(0, 0, 0, 0),
@@ -155,12 +155,12 @@ AssistColors = {
 
 -- MARK: Constants
 local newTimeFlashDuration = 0.15 -- Duration of each flash (on/off) - faster flashing
-local newTimeFlashCount = 5 -- Number of flashes
+local newTimeFlashCount = 5       -- Number of flashes
 
-local raceSimEnabled = false -- Default to disabled
-local raceSimMode = "time" -- "time" or "laps"
-local raceSimTime = 1800 -- Default 30 minutes (in seconds)
-local raceSimLaps = 10 -- Default 10 laps
+local raceSimEnabled = false      -- Default to disabled
+local raceSimMode = "time"        -- "time" or "laps"
+local raceSimTime = 1800          -- Default 30 minutes (in seconds)
+local raceSimLaps = 10            -- Default 10 laps
 
 
 -- Track and car identifiers
@@ -247,10 +247,10 @@ local debugT2 = nil
 
 -- Tire wear tracking
 local tireWearLUTs = {
-    front = nil, -- Will be loaded on first use
-    rear = nil, -- Will be loaded on first use
-    frontPeak = nil, -- Cache the peak grip value
-    rearPeak = nil -- Cache the peak grip value
+    front = nil,                 -- Will be loaded on first use
+    rear = nil,                  -- Will be loaded on first use
+    frontPeak = nil,             -- Cache the peak grip value
+    rearPeak = nil               -- Cache the peak grip value
 }
 local currentCompoundIndex = nil -- Track current compound to detect changes
 
@@ -280,7 +280,6 @@ function GetNextMode(currentMode)
     return modes[1] -- Fallback to first mode
 end
 
-
 function GetTrackIdentifier()
     local layout = ac.getTrackLayout()
     if layout and layout ~= "" then
@@ -288,7 +287,6 @@ function GetTrackIdentifier()
     end
     return ac.getTrackID()
 end
-
 
 function GetWindDirectionText(degrees)
     degrees = degrees % 360
@@ -320,7 +318,6 @@ function GetWindDirectionText(degrees)
     return "N" -- fallback
 end
 
-
 local function getElementPosition(elementWidth, elementType)
     local horizontalCenter = (sim.windowWidth / 2) - ((elementWidth / 2) * Config.appScaleFactor)
     local preset = displaySettings.positions[sim.windowWidth] or displaySettings.positions.default
@@ -346,7 +343,6 @@ function MapRange(n, start, stop, newStart, newStop, clamp)
     end
 end
 
-
 -- Helper function for calculating background alpha fading
 function FadeBackground(setTime)
     local timeSinceSet = os.clock() - setTime
@@ -357,7 +353,6 @@ function FadeBackground(setTime)
     end
     return 0                                      -- Fully transparent after 6 seconds
 end
-
 
 local function findPeakGrip(lut)
     local peak = 0
@@ -451,7 +446,6 @@ function GetTireGripFromWear(wheel)
     return displayGrip
 end
 
-
 -- Initialize paths after state variables are declared
 trackDataFile = string.format("%s/lua/AllTheInfo/track_records/%s.ini", ac.getFolder(ac.FolderID.ACApps), ac.getCarID(0))
 personalBestDir = string.format("%s/lua/AllTheInfo/personal_best/%s", ac.getFolder(ac.FolderID.ACApps), ac.getCarID(0))
@@ -464,7 +458,6 @@ function table.shallow_copy(t)
     end
     return t2
 end
-
 
 local function loadTrackRecords()
     -- Create directories if they don't exist
@@ -711,8 +704,7 @@ local function getLapDelta()
     end
 
     -- Get comparison data
-    local compList = Config.delta.compareMode == "SESSION" and { bestPosList, bestTimeList } or
-    { personalBestPosList, personalBestTimeList }
+    local compList = Config.delta.compareMode == "SESSION" and { bestPosList, bestTimeList } or { personalBestPosList, personalBestTimeList }
 
     -- Find interpolation points
     local i = 1
@@ -872,7 +864,6 @@ function DrawTextWithBackground(text, size, x, y, width, height, bgColor, textCo
     end
 end
 
-
 function GetTireWearColor(wear)
     -- Convert wear from 0-1 to percentage
     local wearPercent = wear * 100
@@ -901,7 +892,6 @@ function GetTireWearColor(wear)
     end
 end
 
-
 function GetFlashState(setTime)
     local timeSince = os.clock() - setTime
     if timeSince < newTimeFlashDuration * newTimeFlashCount * 2 then -- Total duration = flash duration * 2 (on/off) * count
@@ -910,7 +900,6 @@ function GetFlashState(setTime)
     end
     return true -- Always visible after flash sequence
 end
-
 
 function GetTempColor(temp, optimalTemp)
     -- Calculate temperature ratio
@@ -943,8 +932,7 @@ function GetTempColor(temp, optimalTemp)
         return TireTempColors.optimal
     elseif ratio < TireTempThresholds.hot then
         -- Interpolate between green and yellow
-        local t = (ratio - (1 + TireTempThresholds.optimal)) /
-        (TireTempThresholds.hot - (1 + TireTempThresholds.optimal))
+        local t = (ratio - (1 + TireTempThresholds.optimal)) / (TireTempThresholds.hot - (1 + TireTempThresholds.optimal))
         return rgbm(
             TireTempColors.optimal.r * (1 - t) + TireTempColors.hot.r * t,
             TireTempColors.optimal.g * (1 - t) + TireTempColors.hot.g * t,
@@ -971,7 +959,6 @@ function GetTempColor(temp, optimalTemp)
         )
     end
 end
-
 
 function GetPressureColor(current, optimal)
     local delta = current - optimal
@@ -1001,7 +988,6 @@ function GetPressureColor(current, optimal)
     end
 end
 
-
 function EstimateRemainingLaps()
     FuelTracking.currentDelta = Delta.currentDelta
     FuelTracking.bestLapValue = BestLapValue
@@ -1023,7 +1009,6 @@ function EstimateRemainingLaps()
         }
     )
 end
-
 
 local function getConfigValue(path)
     local value = Config
@@ -1110,20 +1095,17 @@ function script.windowMain(dt)
     end
 end
 
-
 function script.windowDelta()
     if not ac.isInReplayMode() then
         ui.transparentWindow("AllTheInfo_Delta", deltabarPosition, vec2(424, 31) * Config.appScaleFactor, true, true, function() deltabar.draw() end)
     end
 end
 
-
 function script.windowDrift()
     if not ac.isInReplayMode() then
         ui.transparentWindow("AllTheInfo_Drift", driftbarPosition, vec2(424, 31) * Config.appScaleFactor, true, true, function() driftbar.draw() end)
     end
 end
-
 
 function script.windowSettings(dt)
     local changed = false
@@ -1237,8 +1219,7 @@ function script.windowSettings(dt)
     ui.text("Personal Best Records:")
     if ui.button("Delete PB for Current Car/Track") then
         ui.modalDialog("Confirm Delete", function()
-            ui.text(
-            "Are you sure you want to delete the personal best record\nfor the current car and track combination?")
+            ui.text("Are you sure you want to delete the personal best record\nfor the current car and track combination?")
             ui.newLine()
             if ui.button("Yes") then
                 -- Delete PB file if it exists, use .txt extension to match savePersonalBest()
@@ -1272,6 +1253,7 @@ function script.windowSettings(dt)
         UIstate.sessionBestFlashStartTime = os.clock()
     end
 end
+
 -- MARK: script.update
 
 
@@ -1348,7 +1330,7 @@ function script.update()
         end
     end
 
-    if car.wheelsOutside > 2 then -- If more than 2 wheels are outside
+    if car.wheelsOutside > 2 then  -- If more than 2 wheels are outside
         CurrentLapIsInvalid = true -- Mark lap as invalid
     end
 

@@ -222,9 +222,9 @@ function dash.draw()
         false,
         rgbm(1, 1, 1, 1)
     )
-    local lastLapBg = PreviousLapValidityValue and rgbm(0.8, 0, 0, 0.5) or     -- Brighter red for invalid lap
-        LastLapWasPersonalBest and rgbm(0.3, 0.3, 0.8, 0.5) or                 -- Brighter blue for personal best
-        LastLapWasSessionBest and rgbm(0.3, 0.8, 0.3, 0.5) or nil              -- Brighter green for session best
+    local lastLapBg = PreviousLapValidityValue and rgbm(0.8, 0, 0, 0.5) or -- Brighter red for invalid lap
+        LastLapWasPersonalBest and rgbm(0.3, 0.3, 0.8, 0.5) or             -- Brighter blue for personal best
+        LastLapWasSessionBest and rgbm(0.3, 0.8, 0.3, 0.5) or nil          -- Brighter green for session best
 
     if math.floor(LastLapValue / 60000) >= 100 then
         timeText = string.format("%01d:%02d.%0d", math.floor(LastLapValue / 60000), math.floor(LastLapValue / 1000) % 60,
@@ -264,7 +264,7 @@ function dash.draw()
         if alpha > 0 then
             sessionBestBg = LastLapWasPersonalBest and
                 rgbm(0.3, 0.3, 0.8, alpha) or -- Blue if both
-                rgbm(0.3, 0.8, 0.3, alpha) -- Green if just session best
+                rgbm(0.3, 0.8, 0.3, alpha)    -- Green if just session best
 
             -- Flash the text instead of hiding background
             if not GetFlashState(SessionBestWasSetTime) then
@@ -413,11 +413,11 @@ function dash.draw()
     local posColor = rgbm(0, 0, 0, 0)
     if (totalCars > 4) and (position < 4) then
         if position == 1 then
-            posColor = rgbm(1, 0.85, 0, 0.65) -- Gold
+            posColor = rgbm(1, 0.85, 0, 0.65)       -- Gold
         elseif position == 2 then
             posColor = rgbm(0.75, 0.75, 0.75, 0.65) -- Silver
         else
-            posColor = rgbm(0.8, 0.5, 0.2, 0.65) -- Bronze
+            posColor = rgbm(0.8, 0.5, 0.2, 0.65)    -- Bronze
         end
     end
 
@@ -436,10 +436,10 @@ function dash.draw()
     DrawTextWithBackground(
         positionText,
         24,
-        200, -- Same X as time and laps values
-        98,  -- Same Y as "POS" label
-        72, -- width
-        16,  -- height
+        200,      -- Same X as time and laps values
+        98,       -- Same Y as "POS" label
+        72,       -- width
+        16,       -- height
         posColor, -- No background
         rgbm(1, 1, 1, 1),
         ui.Alignment.Start
@@ -462,13 +462,13 @@ function dash.draw()
     )
 
     -- Tire blocks visualization
-    local tireBlockWidth = 30 -- Width of each tire block
-    local tireStripeWidth = 10 -- Width of each stripe within a block
-    local tireBlockHeight = 40 -- Total height of tire block
+    local tireBlockWidth = 30        -- Width of each tire block
+    local tireStripeWidth = 10       -- Width of each stripe within a block
+    local tireBlockHeight = 40       -- Total height of tire block
     local tireCoreSectionHeight = 15 -- Height of the core temperature section
-    local tireBlockSpacing = 10 -- Space between left/right blocks
-    local tireVerticalSpacing = 10 -- Space between front/rear tires
-    local tireBlockY = 52 -- Y position to match with other elements
+    local tireBlockSpacing = 10      -- Space between left/right blocks
+    local tireVerticalSpacing = 10   -- Space between front/rear tires
+    local tireBlockY = 52            -- Y position to match with other elements
 
     -- Calculate center position and block positions
     local centerX = 350 -- Approximate center position
