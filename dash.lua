@@ -332,7 +332,7 @@ function dash.draw()
     )
 
     -- Session time and laps remaining display
-    local sessionTotalTimeSec = ac.getSession(currentSessionIndex).durationMinutes * 60
+    local sessionTotalTimeSec = ac.getSession(CurrentSessionIndex).durationMinutes * 60
     local timeLeftSec = sim.sessionTimeLeft / 1000
     local isTimedRace = timeLeftSec > 0
     local timeLeftFade = timeLeftSec <= 0 and 1 or math.smoothstep(MapRange(math.abs(timeLeftSec - sessionTotalTimeSec), 5.5, 10, 0, 1, true) ^ 0.5)

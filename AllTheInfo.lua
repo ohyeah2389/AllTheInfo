@@ -4,7 +4,7 @@
 local car = ac.getCar(0)
 local sim = ac.getSim()
 local session = ac.getSession(sim.currentSessionIndex)
-local currentSessionIndex = sim.currentSessionIndex
+CurrentSessionIndex = sim.currentSessionIndex
 Font_whiteRabbit = ui.DWriteFont("fonts/whitrabt.ttf")
 
 local deltabar = require("deltabar")
@@ -556,8 +556,8 @@ end
 
 
 local function handleSessionStart(sessionIndex, guardFirstLap)
-    currentSessionIndex = sessionIndex or sim.currentSessionIndex
-    session = ac.getSession(currentSessionIndex)
+    CurrentSessionIndex = sessionIndex or sim.currentSessionIndex
+    session = ac.getSession(CurrentSessionIndex)
     resetSessionData(guardFirstLap)
 end
 
@@ -565,7 +565,7 @@ ac.onSessionStart(function(sessionIndex, restarted)
     handleSessionStart(sessionIndex, true)
 end)
 
-handleSessionStart(currentSessionIndex, false)
+handleSessionStart(CurrentSessionIndex, false)
 
 
 local function savePersonalBest()
