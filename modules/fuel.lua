@@ -66,35 +66,58 @@ end
 
 -- Estimate remaining laps for race
 function fuel.estimateRemainingLaps(sim, session, car, settings, tracking, raceSim)
+    tracking = tracking or {}
+    raceSim = raceSim or { enabled = false }
+    settings = settings or {}
+    local bestLapValue = tracking.bestLapValue or 0
+    local lastLapValue = tracking.lastLapValue or 0
+    local personalBestLapValue = tracking.personalBestLapValue or 0
+    local lapDelta = tracking.currentDelta
+    local lapCountWhenTimeExpired = tracking.lapCountWhenTimeExpired or 0
+
     if sim.raceSessionType == ac.SessionType.Race then
+        if not car then return nil end
+
         -- Use actual session data if in a race
         local timeLeft = (sim.sessionTimeLeft / 1000)
-        local isTimedRace = (timeLeft ~= 0)
-        local predictiveLapValue = (settings.deltaCompareMode == "SESSION" and tracking.bestLapValue or tracking.personalBestLapValue) + ((tracking.currentDelta ~= nil and tracking.currentDelta or 0) * 1000)
-        local referenceLapValue = tracking.bestLapValue ~= 0 and tracking.bestLapValue or tracking.lastLapValue ~= 0 and tracking.lastLapValue or tracking.personalBestLapValue
-        referenceLapValue = predictiveLapValue > 0 and predictiveLapValue < referenceLapValue and predictiveLapValue or referenceLapValue
+        local isTimedRace = (session and (session.isTimedRace or session.laps == 0)) or (not session and timeLeft > 0)
+        local deltaMode = settings.deltaCompareMode or "SESSION"
+        local predictiveLapValue = ((deltaMode == "SESSION" and bestLapValue or personalBestLapValue) or 0) + ((lapDelta ~= nil and lapDelta or 0) * 1000)
+        local referenceLapValue = (bestLapValue ~= 0 and bestLapValue) or (lastLapValue ~= 0 and lastLapValue) or personalBestLapValue
+        referenceLapValue = predictiveLapValue > 0 and referenceLapValue and predictiveLapValue < referenceLapValue and predictiveLapValue or referenceLapValue
+
+        if not referenceLapValue or referenceLapValue <= 0 then
+            return nil
+        end
 
         if isTimedRace then
-            if timeLeft <= 0 and session.hasAdditionalLap then
-                -- If we're still on the same lap as when time expired
-                if car.lapCount == tracking.lapCountWhenTimeExpired then
-                    return 2 - car.splinePosition
-                else
-                    -- We've completed at least one lap since time expired
-                    return 1 - car.splinePosition
+            if timeLeft <= 0 then
+                if session and session.hasAdditionalLap then
+                    if car.lapCount == lapCountWhenTimeExpired then
+                        return math.max(0, 2 - car.splinePosition)
+                    end
+                    return math.max(0, 1 - car.splinePosition)
                 end
-            elseif timeLeft <= 0 then
-                return 1 - car.splinePosition
+                return math.max(0, 1 - car.splinePosition)
             end
-            return (timeLeft / (referenceLapValue / 1000)) + (session.hasAdditionalLap and 1 or 0)
-        else
-            return (session.laps - car.lapCount - car.splinePosition)
+
+            local lapsFromTime = timeLeft / (referenceLapValue / 1000)
+            if session and session.hasAdditionalLap then
+                lapsFromTime = lapsFromTime + 1
+            end
+            return lapsFromTime
         end
+
+        if not session or not session.laps or session.laps <= 0 then
+            return nil
+        end
+
+        return math.max(0, (session.laps - car.lapCount - car.splinePosition))
     elseif raceSim.enabled then  -- Only use simulation if enabled
         -- Use simulation settings when not in race
         if raceSim.mode == "time" then
-            if tracking.lastLapValue <= 0 then return nil end  -- No valid lap time yet
-            return raceSim.time / (tracking.lastLapValue / 1000)
+            if lastLapValue <= 0 then return nil end  -- No valid lap time yet
+            return raceSim.time / (lastLapValue / 1000)
         else
             return raceSim.laps
         end
@@ -103,10 +126,14 @@ function fuel.estimateRemainingLaps(sim, session, car, settings, tracking, raceS
 end
 
 -- Process fuel usage for completed lap
-function fuel.processLapFuelUsage(tracking, constants)
+function fuel.processLapFuelUsage(carRef, tracking, constants)
+    local carData = carRef
+    if not carData or not tracking or not constants then return end
+    tracking.fuelUsageHistory = tracking.fuelUsageHistory or {}
+
     -- Calculate and store fuel usage for completed lap
     if tracking.lastLapFuelLevel > 0 then
-        tracking.lastLapFuelUsed = tracking.lastLapFuelLevel - car.fuel  -- Use global car, not tracking.car
+        tracking.lastLapFuelUsed = tracking.lastLapFuelLevel - carData.fuel
 
         if not tracking.currentLapIsInvalid and tracking.lastLapFuelUsed > 0 then
             -- Check if this lap is significantly faster than our fuel usage history
@@ -170,11 +197,13 @@ function fuel.processLapFuelUsage(tracking, constants)
     end
 
     -- Update fuel level for next lap
-    tracking.lastLapFuelLevel = car.fuel  -- Use global car, not tracking.car
+    tracking.lastLapFuelLevel = carData.fuel
 end
 
 -- Get average fuel consumption per lap (weighted)
 function fuel.getAverageFuelPerLap(tracking)
+    tracking = tracking or {}
+    tracking.fuelUsageHistory = tracking.fuelUsageHistory or {}
     local avgFuelPerLap = 0
     if #tracking.fuelUsageHistory > 0 then
         local weightedSum = 0
@@ -193,7 +222,7 @@ end
 
 -- Calculate fuel remaining at race end
 function fuel.calculateRaceEndFuel(car, avgFuelPerLap, remainingLaps)
-    if not remainingLaps or not avgFuelPerLap or avgFuelPerLap <= 0 then
+    if not car or not remainingLaps or not avgFuelPerLap or avgFuelPerLap <= 0 then
         return nil
     end
     

@@ -1,5 +1,6 @@
 local car = ac.getCar(0)
 local sim = ac.getSim()
+local fuel = require("modules.fuel")
 
 local dash = {}
 
@@ -733,8 +734,9 @@ function dash.draw()
     )
 
     -- Last lap fuel usage display
-    local lastLapFuelText = LastLapFuelUsed > 0
-        and string.format("LST %6.2f L", LastLapFuelUsed):gsub("^%s+", "")
+    local lastLapFuel = FuelTracking and FuelTracking.lastLapFuelUsed or 0
+    local lastLapFuelText = lastLapFuel > 0
+        and string.format("LST %6.2f L", lastLapFuel):gsub("^%s+", "")
         or "LST  --.-- L"
     DrawTextWithBackground(
         lastLapFuelText,
@@ -749,19 +751,7 @@ function dash.draw()
     )
 
     -- Average fuel per lap display (weighted)
-    local avgFuelPerLap = 0
-    if #FuelUsageHistory > 0 then
-        local weightedSum = 0
-        local totalWeight = 0
-        for _, data in ipairs(FuelUsageHistory) do
-            weightedSum = weightedSum + (data.usage * data.weight)
-            totalWeight = totalWeight + data.weight
-        end
-        avgFuelPerLap = totalWeight > 0 and (weightedSum / totalWeight) or 0
-    elseif PersonalBestFuelUsage then
-        -- Use personal best fuel usage if no other data available
-        avgFuelPerLap = PersonalBestFuelUsage
-    end
+    local avgFuelPerLap = fuel.getAverageFuelPerLap(FuelTracking or { fuelUsageHistory = {} })
 
     local fuelPerLapText = (avgFuelPerLap > 0)
         and string.format("AVG %6.2f L", avgFuelPerLap):gsub("^%s+", "")
@@ -786,15 +776,7 @@ function dash.draw()
     if avgFuelPerLap > 0 then
         local lapsLeft = car.fuel / avgFuelPerLap
         possibleLaps = string.format("%.1f", lapsLeft)
-
-        -- Set warning colors based on laps remaining
-        if lapsLeft < 1 then
-            possibleLapsColor = rgbm(0, 0, 0, 1) -- Black text
-            possibleLapsBg = rgbm(1, 0, 0, 0.8)  -- Red background
-        elseif lapsLeft < 2 then
-            possibleLapsColor = rgbm(0, 0, 0, 1) -- Black text
-            possibleLapsBg = rgbm(1, 1, 0, 0.8)  -- Yellow background
-        end
+        possibleLapsColor, possibleLapsBg = fuel.getFuelStatusColors(nil, lapsLeft)
     end
 
     local possibleLapsText = string.format("LPS%6s LP", possibleLaps):gsub("^%s+", "")
@@ -812,28 +794,11 @@ function dash.draw()
 
     -- Calculate remaining laps and fuel for race
     local remainingLaps = EstimateRemainingLaps()
+    local fuelRemaining = fuel.calculateRaceEndFuel(car, avgFuelPerLap, remainingLaps)
 
     -- Always show the END fuel display, but with different values based on race state
-    local fuelRemainingText
-    local fuelTextColor = rgbm(1, 1, 1, 1) -- Default white text
-    local fuelBgColor = rgbm(0, 0, 0, 0)   -- Default transparent background
-
-    if remainingLaps and remainingLaps > 0 and avgFuelPerLap > 0 then
-        -- Calculate fuel needed more precisely
-        local fullLaps = math.floor(remainingLaps)
-        local partialLap = remainingLaps - fullLaps
-        local fuelNeeded = fullLaps * avgFuelPerLap + (partialLap * avgFuelPerLap)
-        local fuelRemaining = car.fuel - fuelNeeded
-
-        fuelRemainingText = string.format("END %6.2f L", fuelRemaining):gsub("^%s+", "")
-
-        if fuelRemaining < 0 then
-            fuelTextColor = rgbm(0, 0, 0, 1) -- Black text
-            fuelBgColor = rgbm(1, 0, 0, 0.8) -- Bright red background
-        end
-    else
-        fuelRemainingText = "END  --.-- L"
-    end
+    local fuelRemainingText = fuelRemaining and string.format("END %6.2f L", fuelRemaining):gsub("^%s+", "") or "END  --.-- L"
+    local fuelTextColor, fuelBgColor = fuel.getFuelStatusColors(fuelRemaining, remainingLaps)
 
     DrawTextWithBackground(
         fuelRemainingText,
