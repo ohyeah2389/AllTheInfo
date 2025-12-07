@@ -4,6 +4,7 @@
 local car = ac.getCar(0)
 local sim = ac.getSim()
 local session = ac.getSession(sim.currentSessionIndex)
+local currentSessionIndex = sim.currentSessionIndex
 Font_whiteRabbit = ui.DWriteFont("fonts/whitrabt.ttf")
 
 local deltabar = require("deltabar")
@@ -196,6 +197,8 @@ local trendBufferIndex = 1 -- Current position in buffer
 local previousLapCount = 0
 local previousLapProgressValue = 0
 CurrentLapIsInvalid = false
+PreviousLapValidityValue = false
+local sessionJustReset = false
 LastLapValue = 0
 BestLapValue = 0
 PersonalBestLapValue = 0
@@ -246,7 +249,6 @@ local tireWearLUTs = {
 local currentCompoundIndex = nil -- Track current compound to detect changes
 
 
--- UI state
 UIstate = {}
 UIstate.personalBestFlashStartTime = 0
 UIstate.sessionBestFlashStartTime = 0
@@ -256,11 +258,6 @@ PERSONAL_BEST_FLASH_DURATION = 0.1
 PERSONAL_BEST_FLASH_COUNT = 8
 SESSION_BEST_FLASH_DURATION = 0.1
 SESSION_BEST_FLASH_COUNT = 8
-
-
-local lastSessionTimeLeft = 0 -- Track previous session time
-local sessionTimeJumpThreshold = 10 -- Time jump threshold in seconds
-
 
 -- Helper functions
 
@@ -509,13 +506,16 @@ end
 TrackRecords = loadTrackRecords()
 
 
-local function resetSessionData()
+local function resetSessionData(guardFirstLap)
+    local guardLap = guardFirstLap ~= false
+
     -- Reset lap tracking
     previousLapCount = 0
     previousLapProgressValue = 0
     CurrentLapIsInvalid = false
     LastLapValue = 0
     BestLapValue = 0 -- Reset session best
+    sessionJustReset = guardLap
 
     -- Reset current lap delta tracking but preserve comparison data
     posList = {}
@@ -553,6 +553,19 @@ local function resetSessionData()
 
     print("Session data reset completed - Lap count:" .. car.lapCount)
 end
+
+
+local function handleSessionStart(sessionIndex, guardFirstLap)
+    currentSessionIndex = sessionIndex or sim.currentSessionIndex
+    session = ac.getSession(currentSessionIndex)
+    resetSessionData(guardFirstLap)
+end
+
+ac.onSessionStart(function(sessionIndex, restarted)
+    handleSessionStart(sessionIndex, true)
+end)
+
+handleSessionStart(currentSessionIndex, false)
 
 
 local function savePersonalBest()
@@ -746,13 +759,14 @@ local function storeLap()
     ac.log("Called storeLap()")
     ac.log("#posList: " .. #posList)
     ac.log("LastLapValue: " .. LastLapValue)
-    if (#posList > 10) and (not CurrentLapIsInvalid) and (LastLapValue > 0) then
-        -- Create copies of the lists BEFORE clearing them
-        local posListCopy = table.shallow_copy(posList)
-        local timeListCopy = table.shallow_copy(timeList)
+    local lapIsValid = (not CurrentLapIsInvalid) and (LastLapValue > 0)
+    local hasLapData = #posList > 10
 
-        ac.log("Storing best lap with positions:" .. #posListCopy)
-        ac.log("Storing best lap with times:" .. #timeListCopy)
+    local posListCopy = hasLapData and table.shallow_copy(posList) or nil
+    local timeListCopy = hasLapData and table.shallow_copy(timeList) or nil
+
+    if lapIsValid then
+        ac.log("Lap valid, storing data (hasLapData=" .. tostring(hasLapData) .. ")")
 
         -- Reset flags first
         LastLapWasSessionBest = false
@@ -760,8 +774,8 @@ local function storeLap()
 
         -- Update session best if this lap is faster
         if (BestLapValue == 0) or (LastLapValue < BestLapValue) then
-            bestPosList = table.shallow_copy(posListCopy)
-            bestTimeList = table.shallow_copy(timeListCopy)
+            bestPosList = posListCopy or {}
+            bestTimeList = timeListCopy or {}
             BestLapValue = LastLapValue
             LastLapWasSessionBest = true
             SessionBestWasSetTime = os.clock()
@@ -770,8 +784,8 @@ local function storeLap()
 
         -- Update personal best if this lap is faster
         if (PersonalBestLapValue == 0) or (LastLapValue < PersonalBestLapValue) then
-            personalBestPosList = table.shallow_copy(posListCopy)
-            personalBestTimeList = table.shallow_copy(timeListCopy)
+            personalBestPosList = posListCopy or {}
+            personalBestTimeList = timeListCopy or {}
             PersonalBestLapValue = LastLapValue
             LastLapWasPersonalBest = true
             PersonalBestWasSetTime = os.clock()
@@ -799,14 +813,16 @@ local function storeLap()
                 return newIni
             end)
         end
-
-        -- Reset current lap data AFTER copying and storing
-        posList = {}
-        timeList = {}
-        previousLapProgressValue = 0
-        prevt = 0
-        prevt2 = 0
     end
+
+    -- Always reset current lap data to avoid cross-lap contamination
+    posList = {}
+    timeList = {}
+    previousLapProgressValue = 0
+    prevt = 0
+    prevt2 = 0
+    trendBuffer = {}
+    trendBufferIndex = 1
 end
 
 
@@ -985,7 +1001,7 @@ function EstimateRemainingLaps()
     if sim.raceSessionType == ac.SessionType.Race then
         -- Use actual session data if in a race
         local timeLeft = (sim.sessionTimeLeft / 1000)
-        local isTimedRace = session.isTimedRace
+        local isTimedRace = (session and (session.isTimedRace or session.laps == 0)) or (not session and timeLeft > 0)
         local predictiveLapValue = (Config.delta.compareMode == "SESSION" and BestLapValue or PersonalBestLapValue) +
         ((Delta.currentDelta ~= nil and Delta.currentDelta or 0) * 1000)
         local referenceLapValue = BestLapValue ~= 0 and BestLapValue or LastLapValue ~= 0 and LastLapValue or
@@ -993,22 +1009,36 @@ function EstimateRemainingLaps()
         referenceLapValue = predictiveLapValue > 0 and predictiveLapValue < referenceLapValue and predictiveLapValue or
         referenceLapValue
 
-        if isTimedRace then
-            if timeLeft <= 0 and session.hasAdditionalLap then
-                -- If we're still on the same lap as when time expired
-                if car.lapCount == lapCountWhenTimeExpired then
-                    return 2 - car.splinePosition
-                else
-                    -- We've completed at least one lap since time expired
-                    return 1 - car.splinePosition
-                end
-            elseif timeLeft <= 0 then
-                return 1 - car.splinePosition
-            end
-            return (timeLeft / (referenceLapValue / 1000)) + (session.hasAdditionalLap and 1 or 0)
-        else
-            return (session.laps - car.lapCount - car.splinePosition)
+        -- If we still don't have a meaningful lap time, bail early
+        if not referenceLapValue or referenceLapValue <= 0 then
+            return nil
         end
+
+        if isTimedRace then
+            if timeLeft <= 0 then
+                if session and session.hasAdditionalLap then
+                    -- If we're still on the same lap as when time expired
+                    if car.lapCount == lapCountWhenTimeExpired then
+                        return math.max(0, 2 - car.splinePosition)
+                    end
+                    -- We've completed at least one lap since time expired
+                    return math.max(0, 1 - car.splinePosition)
+                end
+                return math.max(0, 1 - car.splinePosition)
+            end
+
+            local lapsFromTime = timeLeft / (referenceLapValue / 1000)
+            if session and session.hasAdditionalLap then
+                lapsFromTime = lapsFromTime + 1
+            end
+            return lapsFromTime
+        end
+
+        if not session or not session.laps or session.laps <= 0 then
+            return nil
+        end
+
+        return math.max(0, (session.laps - car.lapCount - car.splinePosition))
     elseif raceSimEnabled then -- Only use simulation if enabled
         -- Use simulation settings when not in race
         if raceSimMode == "time" then
@@ -1311,6 +1341,7 @@ function script.windowSettings(dt)
             if ui.button("No") then
                 return true
             end
+            return false
         end)
     end
 
@@ -1329,6 +1360,12 @@ end
 
 ---@diagnostic disable: duplicate-set-field
 function script.update()
+    local sessionActive = sim.isSessionStarted and not sim.isSessionFinished
+    if not sessionActive then
+        Delta.currentDelta, Delta.currentDeltaChangeRate = nil, nil
+        return
+    end
+
     -- Check for centerline availability during the first 10 seconds
     if centerlineCheckTime < centerlineCheckDuration then
         centerlineCheckTime = centerlineCheckTime + ac.getGameDeltaT()
@@ -1344,18 +1381,6 @@ function script.update()
             Delta.trackHasCenterline = true
         end
     end
-
-    -- Check for session change by looking for large time remaining jumps
-    local currentSessionTime = sim.sessionTimeLeft / 1000 -- Convert to seconds
-    local timeDelta = math.abs(currentSessionTime - lastSessionTimeLeft)
-
-    if (timeDelta > sessionTimeJumpThreshold) then
-        resetSessionData()
-        print("Session change detected - time delta: " .. timeDelta)
-    end
-
-    -- Always update last session time, but only after checking for changes
-    lastSessionTimeLeft = currentSessionTime
 
     -- Reset tire LUTs if compound changes
     if car.compoundIndex ~= currentCompoundIndex then
@@ -1373,82 +1398,93 @@ function script.update()
 
     -- Store best lap data when completing a lap
     if lapCount > previousLapCount then
-        LastLapValue = car.previousLapTimeMs
+        -- Skip the first lapCount bump after a session reset to avoid false lap completion at race start
+        if sessionJustReset then
+            previousLapCount = lapCount
+            lastLapFuelLevel = car.fuel
+            CurrentLapIsInvalid = false
+            sessionJustReset = false
+        else
+            LastLapValue = car.previousLapTimeMs
 
-        -- Calculate and store fuel usage for completed lap
-        if lastLapFuelLevel > 0 then
-            LastLapFuelUsed = lastLapFuelLevel - car.fuel -- Store last lap fuel usage regardless of validity
+            -- Remember validity state of the lap that just finished
+            PreviousLapValidityValue = CurrentLapIsInvalid
 
-            if not CurrentLapIsInvalid and LastLapFuelUsed > 0 then
-                -- Check if this lap is significantly faster than our fuel usage history
-                local shouldResetHistory = false
-                if #FuelUsageHistory > 0 then
-                    -- Calculate average lap time from existing history
-                    local avgLapTime = 0
-                    local weightSum = 0
-                    for _, data in ipairs(FuelUsageHistory) do
-                        -- We need to store lap times with fuel usage data
-                        if data.lapTime then
-                            avgLapTime = avgLapTime + (data.lapTime * data.weight)
-                            weightSum = weightSum + data.weight
+            -- Calculate and store fuel usage for completed lap
+            if lastLapFuelLevel > 0 then
+                LastLapFuelUsed = lastLapFuelLevel - car.fuel -- Store last lap fuel usage regardless of validity
+
+                if not CurrentLapIsInvalid and LastLapFuelUsed > 0 then
+                    -- Check if this lap is significantly faster than our fuel usage history
+                    local shouldResetHistory = false
+                    if #FuelUsageHistory > 0 then
+                        -- Calculate average lap time from existing history
+                        local avgLapTime = 0
+                        local weightSum = 0
+                        for _, data in ipairs(FuelUsageHistory) do
+                            -- We need to store lap times with fuel usage data
+                            if data.lapTime then
+                                avgLapTime = avgLapTime + (data.lapTime * data.weight)
+                                weightSum = weightSum + data.weight
+                            end
+                        end
+
+                        if weightSum > 0 then
+                            avgLapTime = avgLapTime / weightSum
+                            -- If new lap is significantly faster (3% or more), reset history
+                            if LastLapValue < (avgLapTime * fuelImprovementThreshold) then
+                                shouldResetHistory = true
+                                ac.log("Fuel history reset due to significant lap time improvement")
+                                ac.log("New lap: " .. LastLapValue)
+                                ac.log("Avg previous: " .. avgLapTime)
+                            end
                         end
                     end
 
-                    if weightSum > 0 then
-                        avgLapTime = avgLapTime / weightSum
-                        -- If new lap is significantly faster (3% or more), reset history
-                        if LastLapValue < (avgLapTime * fuelImprovementThreshold) then
-                            shouldResetHistory = true
-                            ac.log("Fuel history reset due to significant lap time improvement")
-                            ac.log("New lap: " .. LastLapValue)
-                            ac.log("Avg previous: " .. avgLapTime)
-                        end
-                    end
-                end
-
-                if shouldResetHistory then
-                    -- Clear the history and start fresh with this lap
-                    FuelUsageHistory = {}
-                end
-
-                -- Calculate weight based on both lap time and fuel usage
-                local weight = calculateFuelWeight(LastLapValue, LastLapFuelUsed)
-
-                -- Create new data point with lap time included
-                local newDataPoint = FuelDataPoint.new(LastLapFuelUsed, weight)
-                newDataPoint.lapTime = LastLapValue -- Add lap time to the data point
-
-                -- Store both fuel usage and its weight
-                table.insert(FuelUsageHistory, 1, newDataPoint)
-
-                -- Keep only the last N laps, but ensure we have at least 2 representative laps
-                while #FuelUsageHistory > maxFuelHistorySize do
-                    -- Check if removing the last entry would leave us with enough good data
-                    local goodDataCount = 0
-                    for i = 1, #FuelUsageHistory - 1 do          -- Don't count the one we might remove
-                        if FuelUsageHistory[i].weight > 0.5 then -- Consider laps with weight > 0.5 as "good"
-                            goodDataCount = goodDataCount + 1
-                        end
+                    if shouldResetHistory then
+                        -- Clear the history and start fresh with this lap
+                        FuelUsageHistory = {}
                     end
 
-                    if goodDataCount >= 2 then -- Only remove if we have at least 2 good laps remaining
-                        table.remove(FuelUsageHistory)
-                    else
-                        break -- Keep the data until we have enough good laps
+                    -- Calculate weight based on both lap time and fuel usage
+                    local weight = calculateFuelWeight(LastLapValue, LastLapFuelUsed)
+
+                    -- Create new data point with lap time included
+                    local newDataPoint = FuelDataPoint.new(LastLapFuelUsed, weight)
+                    newDataPoint.lapTime = LastLapValue -- Add lap time to the data point
+
+                    -- Store both fuel usage and its weight
+                    table.insert(FuelUsageHistory, 1, newDataPoint)
+
+                    -- Keep only the last N laps, but ensure we have at least 2 representative laps
+                    while #FuelUsageHistory > maxFuelHistorySize do
+                        -- Check if removing the last entry would leave us with enough good data
+                        local goodDataCount = 0
+                        for i = 1, #FuelUsageHistory - 1 do          -- Don't count the one we might remove
+                            if FuelUsageHistory[i].weight > 0.5 then -- Consider laps with weight > 0.5 as "good"
+                                goodDataCount = goodDataCount + 1
+                            end
+                        end
+
+                        if goodDataCount >= 2 then -- Only remove if we have at least 2 good laps remaining
+                            table.remove(FuelUsageHistory)
+                        else
+                            break -- Keep the data until we have enough good laps
+                        end
                     end
                 end
             end
+
+            -- Update fuel level for next lap
+            lastLapFuelLevel = car.fuel
+
+            -- Store lap information
+            storeLap()
+
+            -- Reset validity and update lap count for new lap
+            previousLapCount = lapCount
+            CurrentLapIsInvalid = false
         end
-
-        -- Update fuel level for next lap
-        lastLapFuelLevel = car.fuel
-
-        -- Store lap information
-        storeLap()
-        
-        -- Reset validity and update lap count for new lap
-        previousLapCount = lapCount
-        CurrentLapIsInvalid = false
     end
 
     if car.wheelsOutside > 2 then -- If more than 2 wheels are outside

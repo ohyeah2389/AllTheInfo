@@ -1,6 +1,5 @@
 {
     "Lua.workspace.library": [
-        "G:\\SteamLibrary\\steamapps\\common\\assettocorsa\\extension\\internal\\lua-sdk\\ac_car_scriptable_display",
         "G:\\SteamLibrary\\steamapps\\common\\assettocorsa\\extension\\internal\\lua-sdk\\ac_apps",
         "c:\\Steam\\steamapps\\common\\assettocorsa/extension/internal/lua-sdk/ac_apps",
         "c:\\Steam\\steamapps\\common\\assettocorsa/extension/internal/lua-shared"

@@ -184,24 +184,28 @@ function dash.draw()
         timeText = "-:--.---"
     else
         local comparisonValue = Config.delta.compareMode == "SESSION" and BestLapValue or PersonalBestLapValue
-        local predictiveLapValue = comparisonValue + (delta * 1000)
-        if math.floor(predictiveLapValue / 60000) >= 100 then
-            timeText = string.format("%01d:%02d.%0d", math.floor(predictiveLapValue / 60000),
-                math.floor(predictiveLapValue / 1000) % 60, math.floor(predictiveLapValue % 1000 / 100))
-        elseif math.floor(predictiveLapValue / 60000) >= 10 then
-            timeText = string.format("%01d:%02d.%02d", math.floor(predictiveLapValue / 60000),
-                math.floor(predictiveLapValue / 1000) % 60, math.floor(predictiveLapValue % 1000 / 10))
+        if not comparisonValue or comparisonValue <= 0 then
+            timeText = "-:--.---"
         else
-            timeText = string.format("%01d:%02d.%03d", math.floor(predictiveLapValue / 60000),
-                math.floor(predictiveLapValue / 1000) % 60, predictiveLapValue % 1000)
-        end
+            local predictiveLapValue = comparisonValue + (delta * 1000)
+            if math.floor(predictiveLapValue / 60000) >= 100 then
+                timeText = string.format("%01d:%02d.%0d", math.floor(predictiveLapValue / 60000),
+                    math.floor(predictiveLapValue / 1000) % 60, math.floor(predictiveLapValue % 1000 / 100))
+            elseif math.floor(predictiveLapValue / 60000) >= 10 then
+                timeText = string.format("%01d:%02d.%02d", math.floor(predictiveLapValue / 60000),
+                    math.floor(predictiveLapValue / 1000) % 60, math.floor(predictiveLapValue % 1000 / 10))
+            else
+                timeText = string.format("%01d:%02d.%03d", math.floor(predictiveLapValue / 60000),
+                    math.floor(predictiveLapValue / 1000) % 60, predictiveLapValue % 1000)
+            end
 
-        if CurrentLapIsInvalid then
-            bgColor = rgbm(0.8, 0, 0, 0.5)     -- Brighter red background for invalid lap
-        elseif predictiveLapValue < PersonalBestLapValue or (PersonalBestLapValue == 0 and predictiveLapValue < BestLapValue) then
-            bgColor = rgbm(0.3, 0.3, 0.8, 0.5) -- Brighter blue background for beating personal best
-        elseif predictiveLapValue < BestLapValue then
-            bgColor = rgbm(0.3, 0.8, 0.3, 0.5) -- Brighter green background for beating session best
+            if CurrentLapIsInvalid then
+                bgColor = rgbm(0.8, 0, 0, 0.5)     -- Brighter red background for invalid lap
+            elseif predictiveLapValue < PersonalBestLapValue or (PersonalBestLapValue == 0 and predictiveLapValue < BestLapValue) then
+                bgColor = rgbm(0.3, 0.3, 0.8, 0.5) -- Brighter blue background for beating personal best
+            elseif predictiveLapValue < BestLapValue then
+                bgColor = rgbm(0.3, 0.8, 0.3, 0.5) -- Brighter green background for beating session best
+            end
         end
     end
     DrawTextWithBackground(timeText, 24, 35, 52, 115, 16, bgColor)
@@ -328,9 +332,10 @@ function dash.draw()
     )
 
     -- Session time and laps remaining display
+    local sessionTotalTimeSec = ac.getSession(currentSessionIndex).durationMinutes * 60
     local timeLeftSec = sim.sessionTimeLeft / 1000
     local isTimedRace = timeLeftSec > 0
-    local timeLeftFade = timeLeftSec <= 0 and 1 or math.smoothstep(MapRange(math.abs(timeLeftSec), 5.5, 10, 0, 1, true) ^ 0.5)
+    local timeLeftFade = timeLeftSec <= 0 and 1 or math.smoothstep(MapRange(math.abs(timeLeftSec - sessionTotalTimeSec), 5.5, 10, 0, 1, true) ^ 0.5)
 
     -- Time remaining display
     local timeRemainingText
@@ -374,7 +379,7 @@ function dash.draw()
 
     -- Laps remaining display
     local remainingLaps = EstimateRemainingLaps()
-    local lapsRemainingText = remainingLaps and string.format(remainingLaps >= 100 and "%.0f" or remainingLaps >= 10 and "%.1f" or "%.2f", remainingLaps) or "--.-"
+    local lapsRemainingText = (remainingLaps and remainingLaps > 0) and string.format(remainingLaps >= 100 and "%.0f" or remainingLaps >= 10 and "%.1f" or "%.2f", remainingLaps) or "--.-"
 
     -- Draw laps remaining
     DrawTextWithBackground(
@@ -813,7 +818,7 @@ function dash.draw()
     local fuelTextColor = rgbm(1, 1, 1, 1) -- Default white text
     local fuelBgColor = rgbm(0, 0, 0, 0)   -- Default transparent background
 
-    if remainingLaps and avgFuelPerLap > 0 then
+    if remainingLaps and remainingLaps > 0 and avgFuelPerLap > 0 then
         -- Calculate fuel needed more precisely
         local fullLaps = math.floor(remainingLaps)
         local partialLap = remainingLaps - fullLaps
