@@ -1,6 +1,8 @@
 -- AllTheInfo CSP Lua App
 -- Authored by ohyeah2389
 
+DEBUG = false
+
 local car = ac.getCar(0)
 local sim = ac.getSim()
 local session = ac.getSession(sim.currentSessionIndex)
@@ -359,7 +361,9 @@ local function findPeakGrip(lut)
     local serialized = lut:serialize()
 
     -- Debug raw LUT data
-    ac.debug("Raw LUT data", serialized)
+    if DEBUG then
+        ac.debug("Raw LUT data", serialized)
+    end
 
     -- Parse the serialized LUT data to find peak value
     for entry in serialized:gmatch("|([^|]+)") do
@@ -369,15 +373,19 @@ local function findPeakGrip(lut)
             local value = tonumber(output)
             if value then
                 peak = math.max(peak, value)
-                ac.debug("Found value", value)
-                ac.debug("Peak grip", peak)
+                if DEBUG then
+                    ac.debug("Found value", value)
+                    ac.debug("Peak grip", peak)
+                end
             end
         end
     end
 
     if peak == 0 then
         -- Fallback to 100 if we couldn't parse the LUT
-        ac.log("Warning: Could not find peak grip value, using fallback of 100")
+        if DEBUG then
+            ac.log("Warning: Could not find peak grip value, using fallback of 100")
+        end
         peak = 100
     end
 
@@ -402,12 +410,6 @@ function GetTireGripFromWear(wheel)
         local frontWearCurve = tireData:get(frontSection, "WEAR_CURVE", "tyres_wear_curve.lut")
         local rearWearCurve = tireData:get(rearSection, "WEAR_CURVE", "tyres_wear_curve.lut")
 
-        ac.debug("Compound index", compoundIndex)
-        ac.debug("Front section", frontSection)
-        ac.debug("Rear section", rearSection)
-        ac.debug("Front wear curve", frontWearCurve)
-        ac.debug("Rear wear curve", rearWearCurve)
-
         -- Load the wear curves
         tireWearLUTs.front = ac.DataLUT11.carData(0, frontWearCurve)
         tireWearLUTs.rear = ac.DataLUT11.carData(0, rearWearCurve)
@@ -416,8 +418,15 @@ function GetTireGripFromWear(wheel)
         tireWearLUTs.frontPeak = findPeakGrip(tireWearLUTs.front)
         tireWearLUTs.rearPeak = findPeakGrip(tireWearLUTs.rear)
 
-        ac.debug("Front peak grip", tireWearLUTs.frontPeak)
-        ac.debug("Rear peak grip", tireWearLUTs.rearPeak)
+        if DEBUG then
+            ac.debug("Compound index", compoundIndex)
+            ac.debug("Front section", frontSection)
+            ac.debug("Rear section", rearSection)
+            ac.debug("Front wear curve", frontWearCurve)
+            ac.debug("Rear wear curve", rearWearCurve)
+            ac.debug("Front peak grip", tireWearLUTs.frontPeak)
+            ac.debug("Rear peak grip", tireWearLUTs.rearPeak)
+        end
     end
 
     -- Get the appropriate LUT and peak value based on wheel position
@@ -439,9 +448,11 @@ function GetTireGripFromWear(wheel)
     displayGrip = math.clamp(displayGrip, 0, 1)
 
     -- Debug values
-    ac.debug(string.format("Wheel %d raw grip", wheel), rawGrip)
-    ac.debug(string.format("Wheel %d normalized", wheel), normalizedGrip)
-    ac.debug(string.format("Wheel %d display", wheel), displayGrip)
+    if DEBUG then
+        ac.debug(string.format("Wheel %d raw grip", wheel), rawGrip)
+        ac.debug(string.format("Wheel %d normalized", wheel), normalizedGrip)
+        ac.debug(string.format("Wheel %d display", wheel), displayGrip)
+    end
 
     return displayGrip
 end
@@ -608,8 +619,10 @@ local function savePersonalBest()
         end
 
         file:close()
-        ac.log("Saved personal best with positions:" .. #personalBestPosList) -- Changed debug output
-        ac.log("Saved personal best with times:" .. #personalBestTimeList)    -- Changed debug output
+        if DEBUG then
+            ac.log("Saved personal best with positions:" .. #personalBestPosList) -- Changed debug output
+            ac.log("Saved personal best with times:" .. #personalBestTimeList)    -- Changed debug output
+        end
     end
 end
 
@@ -658,10 +671,12 @@ local function loadPersonalBest()
             end
 
             file:close()
-            ac.log("Loaded personal best:" .. PersonalBestLapValue)
-            ac.log("Loaded positions:" .. #personalBestPosList)
-            ac.log("Loaded times:" .. #personalBestTimeList)
-            ac.log("Loaded fuel usage:" .. (FuelTracking.personalBestFuelUsage or 0))
+            if DEBUG then
+                ac.log("Loaded personal best:" .. PersonalBestLapValue)
+                ac.log("Loaded positions:" .. #personalBestPosList)
+                ac.log("Loaded times:" .. #personalBestTimeList)
+                ac.log("Loaded fuel usage:" .. (FuelTracking.personalBestFuelUsage or 0))
+            end
         end
     end
 end
@@ -753,9 +768,11 @@ end
 
 
 local function storeLap()
-    ac.log("Called storeLap()")
-    ac.log("#posList: " .. #posList)
-    ac.log("LastLapValue: " .. LastLapValue)
+    if DEBUG then
+        ac.log("Called storeLap()")
+        ac.log("#posList: " .. #posList)
+        ac.log("LastLapValue: " .. LastLapValue)
+    end
     local lapIsValid = (not CurrentLapIsInvalid) and (LastLapValue > 0)
     local hasLapData = #posList > 10
 
@@ -763,7 +780,9 @@ local function storeLap()
     local timeListCopy = hasLapData and table.shallow_copy(timeList) or nil
 
     if lapIsValid then
-        ac.log("Lap valid, storing data (hasLapData=" .. tostring(hasLapData) .. ")")
+        if DEBUG then
+            ac.log("Lap valid, storing data (hasLapData=" .. tostring(hasLapData) .. ")")
+        end
 
         -- Reset flags first
         LastLapWasSessionBest = false
@@ -1272,7 +1291,9 @@ function script.update()
         -- If we're in a lap with reasonable time but splinePosition is still 0, assume no centerline
         if car.lapTimeMs > 5000 and car.splinePosition == 0 then
             if Delta.trackHasCenterline then
-                ac.log("Track has no AI centerline - delta calculations disabled")
+                if DEBUG then
+                    ac.log("Track has no AI centerline - delta calculations disabled")
+                end
                 Delta.trackHasCenterline = false
             end
         elseif car.splinePosition > 0.001 then
@@ -1345,53 +1366,55 @@ function script.update()
         Delta.currentDelta, Delta.currentDeltaChangeRate = nil, nil
     end
 
-    -- Debug output for delta calculation
-    ac.debug("delta", Delta.currentDelta)
-    ac.debug("deltaChangeRate", Delta.currentDeltaChangeRate)
-    ac.debug("currentLapTime", car.lapTimeMs)
-    ac.debug("lapProgress", car.splinePosition)
-    ac.debug("wheelsOutside", car.wheelsOutside)
-    ac.debug("isInvalid", CurrentLapIsInvalid)
-    ac.debug("comparisonPoints", Config.delta.compareMode == "SESSION" and #bestPosList or #personalBestPosList)
-    ac.debug("lastGoodDelta", lastGoodDelta)
-    ac.debug("timeSinceGoodDelta", sim.time - lastGoodDeltaTime)
-    ac.debug("session.laps", session.laps)
-    ac.debug("car.lapCount", car.lapCount)
-    ac.debug("car.splinePosition", car.splinePosition)
-    ac.debug("sim.sessionTimeLeft", sim.sessionTimeLeft)
-    ac.debug("sim.sessionsCount", sim.sessionsCount)
-    ac.debug("sim.currentSessionIndex", sim.currentSessionIndex)
+    if DEBUG then
+        -- Debug output for delta calculation
+        ac.debug("delta", Delta.currentDelta)
+        ac.debug("deltaChangeRate", Delta.currentDeltaChangeRate)
+        ac.debug("currentLapTime", car.lapTimeMs)
+        ac.debug("lapProgress", car.splinePosition)
+        ac.debug("wheelsOutside", car.wheelsOutside)
+        ac.debug("isInvalid", CurrentLapIsInvalid)
+        ac.debug("comparisonPoints", Config.delta.compareMode == "SESSION" and #bestPosList or #personalBestPosList)
+        ac.debug("lastGoodDelta", lastGoodDelta)
+        ac.debug("timeSinceGoodDelta", sim.time - lastGoodDeltaTime)
+        ac.debug("session.laps", session.laps)
+        ac.debug("car.lapCount", car.lapCount)
+        ac.debug("car.splinePosition", car.splinePosition)
+        ac.debug("sim.sessionTimeLeft", sim.sessionTimeLeft)
+        ac.debug("sim.sessionsCount", sim.sessionsCount)
+        ac.debug("sim.currentSessionIndex", sim.currentSessionIndex)
 
-    -- Tire wear debug information
-    ac.debug("tireWear: FL vKM", car.wheels[ac.Wheel.FrontLeft].tyreVirtualKM)
-    ac.debug("tireWear: FR vKM", car.wheels[ac.Wheel.FrontRight].tyreVirtualKM)
-    ac.debug("tireWear: RL vKM", car.wheels[ac.Wheel.RearLeft].tyreVirtualKM)
-    ac.debug("tireWear: RR vKM", car.wheels[ac.Wheel.RearRight].tyreVirtualKM)
+        -- Tire wear debug information
+        ac.debug("tireWear: FL vKM", car.wheels[ac.Wheel.FrontLeft].tyreVirtualKM)
+        ac.debug("tireWear: FR vKM", car.wheels[ac.Wheel.FrontRight].tyreVirtualKM)
+        ac.debug("tireWear: RL vKM", car.wheels[ac.Wheel.RearLeft].tyreVirtualKM)
+        ac.debug("tireWear: RR vKM", car.wheels[ac.Wheel.RearRight].tyreVirtualKM)
 
-    ac.debug("tireWear: FL grip%", GetTireGripFromWear(0))
-    ac.debug("tireWear: FR grip%", GetTireGripFromWear(1))
-    ac.debug("tireWear: RL grip%", GetTireGripFromWear(2))
-    ac.debug("tireWear: RR grip%", GetTireGripFromWear(3))
+        ac.debug("tireWear: FL grip%", GetTireGripFromWear(0))
+        ac.debug("tireWear: FR grip%", GetTireGripFromWear(1))
+        ac.debug("tireWear: RL grip%", GetTireGripFromWear(2))
+        ac.debug("tireWear: RR grip%", GetTireGripFromWear(3))
 
-    -- Debug interpolation values
-    ac.debug("deltaInterp: i", debugI)
-    ac.debug("deltaInterp: p1", debugP1)
-    ac.debug("deltaInterp: p2", debugP2)
-    ac.debug("deltaInterp: t1", debugT1)
-    ac.debug("deltaInterp: t2", debugT2)
+        -- Debug interpolation values
+        ac.debug("deltaInterp: i", debugI)
+        ac.debug("deltaInterp: p1", debugP1)
+        ac.debug("deltaInterp: p2", debugP2)
+        ac.debug("deltaInterp: t1", debugT1)
+        ac.debug("deltaInterp: t2", debugT2)
 
-    -- Debug the early exit conditions
-    local earlyExitReason = ""
-    if car.lapTimeMs <= 500 then
-        earlyExitReason = "too early in lap"
-    elseif car.splinePosition <= 0.001 then
-        earlyExitReason = "too close to start"
-    elseif car.splinePosition >= 0.999 then
-        earlyExitReason = "too close to end"
-    elseif CurrentLapIsInvalid then
-        earlyExitReason = "lap invalid"
+        -- Debug the early exit conditions
+        local earlyExitReason = ""
+        if car.lapTimeMs <= 500 then
+            earlyExitReason = "too early in lap"
+        elseif car.splinePosition <= 0.001 then
+            earlyExitReason = "too close to start"
+        elseif car.splinePosition >= 0.999 then
+            earlyExitReason = "too close to end"
+        elseif CurrentLapIsInvalid then
+            earlyExitReason = "lap invalid"
+        end
+        ac.debug("earlyExitReason", earlyExitReason)
     end
-    ac.debug("earlyExitReason", earlyExitReason)
 
     -- Only update previousLapProgressValue if we have a centerline
     if Delta.trackHasCenterline then

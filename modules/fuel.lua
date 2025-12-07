@@ -155,9 +155,11 @@ function fuel.processLapFuelUsage(carRef, tracking, constants)
                     -- If new lap is significantly faster (3% or more), reset history
                     if tracking.lastLapValue < (avgLapTime * constants.fuelImprovementThreshold) then
                         shouldResetHistory = true
-                        ac.debug("Resetting fuel history due to significant lap time improvement")
-                        ac.debug("New lap:", tracking.lastLapValue)
-                        ac.debug("Avg previous:", avgLapTime)
+                        if DEBUG then
+                            ac.debug("Resetting fuel history due to significant lap time improvement")
+                            ac.debug("New lap:", tracking.lastLapValue)
+                            ac.debug("Avg previous:", avgLapTime)
+                        end
                     end
                 end
             end
