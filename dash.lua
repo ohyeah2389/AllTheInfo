@@ -17,6 +17,8 @@ function dash.draw()
         AllTimeBestLap = TrackRecords[GetTrackIdentifier()].time
     end
 
+    -- MARK: Top
+
     -- Gear
     DrawTextWithBackground(
         car.gear == -1 and "R" or (car.gear == 0 and "N" or tostring(car.gear)),
@@ -55,11 +57,11 @@ function dash.draw()
 
     -- RPM light sections
     if Config.rpm.shiftLightsEnabled then
-        local numSections = 6 -- Can be configured
+        local numSections = 6
         local sectionStartX = rpmBarStartX + 4
         local sectionEndX = rpmBarEndX - 4
-        local totalWidth = sectionEndX - sectionStartX -- Total available width
-        local sectionWidth = totalWidth / numSections  -- Each section exactly same size
+        local totalWidth = sectionEndX - sectionStartX
+        local sectionWidth = totalWidth / numSections
         local rpmStart = car.rpmLimiter * Config.rpm.lightsStart
         local rpmRange = (car.rpmLimiter * Config.rpm.shiftPoint) - rpmStart
         local isOverShiftPoint = car.rpm >= (car.rpmLimiter * Config.rpm.shiftPoint)
@@ -69,7 +71,7 @@ function dash.draw()
             local x1 = sectionStartX + (sectionWidth * i)
             local x2 = sectionStartX + (sectionWidth * (i + 1))
             if i < numSections - 1 then
-                x2 = x2 - 4 -- Add small gap between sections, except for last one
+                x2 = x2 - 4
             end
 
             -- Only show section if RPM is high enough
@@ -78,21 +80,20 @@ function dash.draw()
                 -- Set color based on whether we're over redline
                 local color
                 if isOverRedline then
-                    -- Alternate orange and white at 20Hz
                     if (i % 2 == 0) == flashState then
-                        color = rgbm(1, 1, 0, 1) -- Yellow
+                        color = rgbm(1, 1, 0, 1)
                     else
-                        color = rgbm(1, 0, 0, 1) -- Red
+                        color = rgbm(1, 0, 0, 1)
                     end
                 elseif isOverShiftPoint and (car.gear ~= car.gearCount) then
-                    color = rgbm(0, 0.5, 1, 2) -- Blue when over shift point
+                    color = rgbm(0, 0.4, 1, 1)
                 else
-                    if i >= numSections - 2 then
-                        color = rgbm(0.8, 0.2, 0.2, 1) -- Red
-                    elseif i >= numSections - 4 then
-                        color = rgbm(0.8, 0.8, 0.2, 1) -- Yellow
+                    if i < (numSections / 3) then
+                        color = rgbm(0.2, 0.8, 0.2, 1)
+                    elseif i < ((numSections / 3) * 2) then
+                        color = rgbm(0.8, 0.8, 0.2, 1)
                     else
-                        color = rgbm(0.2, 0.8, 0.2, 1) -- Green
+                        color = rgbm(0.8, 0.2, 0.2, 1)
                     end
                 end
                 ui.drawRectFilled(vec2(x1, 15), vec2(x2, 34), color, 2, ui.CornerFlags.All)
@@ -121,7 +122,7 @@ function dash.draw()
 
         ui.drawRectFilled(vec2(boostBarStartX, boostBarY1), vec2(boostBarStartX + boostBarWidth, boostBarY2),
             rgbm(0.15, 0.15, 0.15, 0.9), 2)
-        local boostPercent = math.clamp(car.turboBoost / MaxSeenBoost, 0.0, 1.0) -- Normalize to max seen boost
+        local boostPercent = math.clamp(car.turboBoost / MaxSeenBoost, 0.0, 1.0)
         local boostWidth = boostBarWidth * boostPercent
         local boostColor
 
@@ -165,8 +166,50 @@ function dash.draw()
         )
     end
 
-    -- Separator line
+    if car.drsPresent then
+        -- DRS indicator background
+        local drsX = 700 - 140 + 10
+        local drsWidth = 40
+        local drsHeight = 38 - 11
+        local drsY = 11
+
+        -- Determine DRS state and color
+        local drsColor = DRSColors.inactive
+        if car.drsActive then
+            drsColor = DRSColors.active
+        elseif car.drsAvailable then
+            drsColor = DRSColors.available
+        end
+
+        -- Draw DRS background and text
+        ui.drawRectFilled(vec2(drsX, drsY), vec2(drsX + drsWidth, drsY + drsHeight), drsColor, 4, ui.CornerFlags.All)
+
+        -- Draw "DRS" text
+        ui.dwriteDrawTextClipped(
+            "DRS",
+            16,
+            vec2(drsX, drsY),
+            vec2(drsX + drsWidth, drsY + drsHeight),
+            ui.Alignment.Center,
+            ui.Alignment.Center,
+            false,
+            rgbm(0, 0, 0, 1) -- Black text
+        )
+    else
+        -- Draw app icon when no DRS
+        local iconX = 700 - 140 + 6
+        local iconY = 1
+        local iconSize = 41
+        ui.drawImage(
+            "icon.png",
+            vec2(iconX, iconY),
+            vec2(iconX + iconSize, iconY + iconSize)
+        )
+    end
+
     ui.drawLine(vec2(5, 45), vec2(695, 45), rgbm(1, 1, 1, 0.2), 1)
+
+    -- MARK: Timing
 
     -- Predictive current lap
     ui.dwriteDrawTextClipped(
@@ -244,7 +287,6 @@ function dash.draw()
         24, 35, 52 + 23, 115, 16, lastLapBg
     )
 
-    -- Separator line between lap times
     ui.drawLine(vec2(5, 95), vec2(148, 95), rgbm(1, 1, 1, 0.2), 1)
 
     -- Session best laptime
@@ -333,13 +375,21 @@ function dash.draw()
         pbColor
     )
 
-    -- Session time and laps remaining display
+    -- separator line between laptiming and time/laps left
+    ui.drawLine(
+        vec2(152, 49),
+        vec2(152, 147),
+        rgbm(1, 1, 1, 0.2),
+        1
+    )
+
+    -- MARK: Time/Laps
     local sessionTotalTimeSec = ac.getSession(CurrentSessionIndex).durationMinutes * 60
     local timeLeftSec = sim.sessionTimeLeft / 1000
     local isTimedRace = timeLeftSec > 0
     local timeLeftFade = timeLeftSec <= 0 and 1 or math.smoothstep(MapRange(math.abs(timeLeftSec - sessionTotalTimeSec), 5.5, 10, 0, 1, true) ^ 0.5)
 
-    -- Time remaining display
+    -- Time remaining
     local timeRemainingText
     if isTimedRace then
         local hours = math.floor(timeLeftSec / 3600)
@@ -355,54 +405,52 @@ function dash.draw()
         timeRemainingText = "--:--"
     end
 
-    -- Draw time remaining
     DrawTextWithBackground(
         "TIME",
         14,
-        159, -- Position to the right of lap times
+        159,
         53,
-        40,  -- width
-        16,  -- height
-        nil, -- No background
+        40,
+        16,
+        nil,
         rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
     DrawTextWithBackground(
         timeRemainingText,
         24,
-        200, -- Position after "TIME" label
-        52,  -- Same Y as label
-        100, -- width
-        16,  -- height
-        nil, -- No background
+        200,
+        52,
+        100,
+        16,
+        nil,
         timeLeftSec > 0 and rgbm(1, 1, 1, 1 * timeLeftFade) or rgbm(1, 1, 1, 0.5),
         ui.Alignment.Start
     )
 
-    -- Laps remaining display
+    -- Laps remaining
     local remainingLaps = EstimateRemainingLaps()
     local lapsRemainingText = (remainingLaps and remainingLaps > 0) and string.format(remainingLaps >= 100 and "%.0f" or remainingLaps >= 10 and "%.1f" or "%.2f", remainingLaps) or "--.-"
 
-    -- Draw laps remaining
     DrawTextWithBackground(
         "LAPS",
         14,
-        160, -- Same X as "TIME"
-        75,  -- Below time display
-        40,  -- width
-        16,  -- height
-        nil, -- No background
+        160,
+        76,
+        40,
+        16,
+        nil,
         rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
     DrawTextWithBackground(
         lapsRemainingText,
         24,
-        200, -- Same X as time value
-        75,  -- Same Y as "LAPS" label
-        100, -- width
-        16,  -- height
-        nil, -- No background
+        200,
+        76,
+        100,
+        16,
+        nil,
         timeLeftSec > 0 and rgbm(1, 1, 1, 0.5) or rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
@@ -422,45 +470,61 @@ function dash.draw()
         end
     end
 
-    -- Draw position
     DrawTextWithBackground(
         "POS",
         14,
-        160, -- Same X as "TIME" and "LAPS"
-        98,  -- Below laps display
-        40,  -- width
-        16,  -- height
-        nil, -- No background
+        160,
+        100,
+        40,
+        16,
+        nil,
         rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
     DrawTextWithBackground(
         positionText,
         24,
-        200,      -- Same X as time and laps values
-        98,       -- Same Y as "POS" label
-        72,       -- width
-        16,       -- height
-        posColor, -- No background
+        200,
+        100,
+        72,
+        16,
+        posColor,
         rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
 
-    -- Add separator line between laptiming and time/laps left
-    ui.drawLine(
-        vec2(152, 49),
-        vec2(152, 147),
-        rgbm(1, 1, 1, 0.2),
-        1
+    DrawTextWithBackground(
+        "IRL",
+        14,
+        160,
+        124,
+        40,
+        16,
+        nil,
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.Start
+    )
+    DrawTextWithBackground(
+        os.date("%H:%M"),
+        24,
+        200,
+        124,
+        72,
+        16,
+        posColor,
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.Start
     )
 
-    -- Add seperator between time/laps/pos and tires
+    -- seperator between timing and tires
     ui.drawLine(
         vec2(273, 49),
         vec2(273, 147),
         rgbm(1, 1, 1, 0.2),
         1
     )
+
+    -- MARK: Tires
 
     -- Tire blocks visualization
     local tireBlockWidth = 30        -- Width of each tire block
@@ -492,7 +556,7 @@ function dash.draw()
     local tireRL_grip = GetTireGripFromWear(2)
     local tireRR_grip = GetTireGripFromWear(3)
 
-    -- Load tire data from car's data files
+    -- Load tire data
     local tireData = ac.INIConfig.carData(0, "tyres.ini")
     local tireOptimumPressures = {
         tonumber(tireData:get(car.compoundIndex == 0 and "FRONT" or "FRONT_" .. (car.compoundIndex + 1), "PRESSURE_IDEAL", 26)),
@@ -503,11 +567,9 @@ function dash.draw()
     local tireExplosionTemp = tonumber(tireData:get("EXPLOSION", "TEMPERATURE", (tireOptimumTemps[1] * 3)))
 
     -- Update explosion threshold based on actual explosion temp
-    -- We'll set it to show black when within 20°C of explosion temp
     TireTempThresholds.explosion = (tireExplosionTemp - 20) / tireOptimumTemps[1]
 
     -- Draw front left tire block
-    -- Core temperature section
     ui.drawRectFilled(
         vec2(leftBlocksX, tireBlockY),
         vec2(leftBlocksX + tireBlockWidth - 1, tireBlockY + tireCoreSectionHeight),
@@ -515,7 +577,6 @@ function dash.draw()
         0, -- No rounding
         0  -- No corner flags
     )
-    -- Surface temperature stripes for front left (from left to right: outer, middle, inner)
     for i = 0, 2 do
         local stripeIndex = 2 - i -- Reverse order: 0=outer, 1=middle, 2=inner
         local temp = stripeIndex == 0 and tireOuterTemps[1] or
@@ -532,7 +593,6 @@ function dash.draw()
     end
 
     -- Draw front right tire block
-    -- Core temperature section
     ui.drawRectFilled(
         vec2(rightBlocksX, tireBlockY),
         vec2(rightBlocksX + tireBlockWidth - 1, tireBlockY + tireCoreSectionHeight),
@@ -540,7 +600,6 @@ function dash.draw()
         0, -- No rounding
         0  -- No corner flags
     )
-    -- Surface temperature stripes for right tires (from left to right: inner, middle, outer)
     for i = 0, 2 do
         local stripeIndex = i -- Keep original order: 0=inner, 1=middle, 2=outer
         local temp = stripeIndex == 0 and tireInnerTemps[2] or
@@ -557,7 +616,6 @@ function dash.draw()
     end
 
     -- Draw rear left tire block
-    -- Core temperature section
     ui.drawRectFilled(
         vec2(leftBlocksX, tireBlockY + tireBlockHeight + tireVerticalSpacing),
         vec2(leftBlocksX + tireBlockWidth - 1, tireBlockY + tireBlockHeight + tireVerticalSpacing + tireCoreSectionHeight),
@@ -565,7 +623,6 @@ function dash.draw()
         0, -- No rounding
         0  -- No corner flags
     )
-    -- Surface temperature stripes for rear left (from left to right: outer, middle, inner)
     for i = 0, 2 do
         local stripeIndex = 2 - i -- Reverse order: 0=outer, 1=middle, 2=inner (changed from i)
         local temp = stripeIndex == 0 and tireOuterTemps[3] or
@@ -584,7 +641,6 @@ function dash.draw()
     end
 
     -- Draw rear right tire block
-    -- Core temperature section
     ui.drawRectFilled(
         vec2(rightBlocksX, tireBlockY + tireBlockHeight + tireVerticalSpacing),
         vec2(rightBlocksX + tireBlockWidth - 1,
@@ -593,7 +649,6 @@ function dash.draw()
         0, -- No rounding
         0  -- No corner flags
     )
-    -- Surface temperature stripes for rear right (from left to right: inner, middle, outer)
     for i = 0, 2 do
         local stripeIndex = i -- Keep original order: 0=inner, 1=middle, 2=outer
         local temp = stripeIndex == 0 and tireInnerTemps[4] or
@@ -712,7 +767,7 @@ function dash.draw()
         ui.Alignment.Start                 -- Left alignment for right tires
     )
 
-    -- Add seperator between tires and ABS/TC/BB
+    -- seperator between tires and assists
     ui.drawLine(
         vec2(427, 49),
         vec2(427, 147),
@@ -720,21 +775,198 @@ function dash.draw()
         1
     )
 
-    -- Fuel level display
+    -- MARK: Assists
+    local assistsX = rightBlocksX + tireBlockWidth + 50
+    local assistsY = tireBlockY + 2
+
+    -- TC
+    local tcText = car.tractionControlModes > 0
+        and string.format("%2d/%d", car.tractionControlMode, car.tractionControlModes)
+        or " N/A"
+    DrawTextWithBackground(
+        "TC1",
+        14,
+        assistsX,
+        assistsY,
+        29,
+        9,
+        car.tractionControlInAction and AssistColors.tc or nil,
+        rgbm(1, 1, 1, 1)
+    )
+    DrawTextWithBackground(
+        tcText,
+        22,
+        assistsX + 28,
+        assistsY,
+        65,
+        22,
+        nil,
+        rgbm(1, 1, 1, 1)
+    )
+
+    -- TC2
+    local tc2Text = car.tractionControl2 > 0
+        and string.format("%2d/%d", car.tractionControl2, car.tractionControl2Modes)
+        or " N/A"
+    DrawTextWithBackground(
+        "TC2",
+        14,
+        assistsX,
+        assistsY + 23,
+        29,
+        9,
+        car.tractionControlInAction and AssistColors.tc or nil,
+        rgbm(1, 1, 1, 1)
+    )
+    DrawTextWithBackground(
+        tc2Text,
+        22,
+        assistsX + 28,
+        assistsY + 23,
+        65,
+        22,
+        nil,
+        rgbm(1, 1, 1, 1)
+    )
+
+    -- ABS
+    local absText = car.absModes > 0
+        and string.format("%2d/%d", car.absMode, car.absModes)
+        or " N/A"
+    DrawTextWithBackground(
+        "ABS",
+        14, -- Small text for label
+        assistsX,
+        assistsY + 46,
+        29,
+        9,
+        car.absInAction and AssistColors.abs or nil,
+        rgbm(1, 1, 1, 1)
+    )
+    DrawTextWithBackground(
+        absText,
+        22,
+        assistsX + 28,
+        assistsY + 46,
+        65,
+        22,
+        nil,
+        rgbm(1, 1, 1, 1)
+    )
+
+    -- Brake bias
+    DrawTextWithBackground(
+        "BB",
+        14,
+        assistsX,
+        assistsY + 69,
+        40,
+        22,
+        nil,
+        rgbm(1, 1, 1, 1)
+    )
+    DrawTextWithBackground(
+        string.format("%.1f%%", car.brakeBias * 100),
+        22,
+        assistsX + 28,
+        assistsY + 69,
+        65,
+        22,
+        nil,
+        rgbm(1, 1, 1, 1)
+    )
+
+    -- seperator between assists and environmental
+    ui.drawLine(
+        vec2(rightBlocksX + 175, tireBlockY - 3),
+        vec2(rightBlocksX + 175, tireBlockY + 95),
+        rgbm(1, 1, 1, 0.2),
+        1
+    )
+
+    -- MARK: Enviro
+    DrawTextWithBackground(
+        string.format("%s", GetWindDirectionText(sim.windDirectionDeg)),
+        22,
+        assistsX + 100,
+        assistsY,
+        35,
+        22,
+        nil,
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.Center
+    )
+    DrawTextWithBackground(
+        string.format("%.0f", sim.windSpeedKmh),
+        22,
+        assistsX + 100,
+        assistsY + 23,
+        35,
+        22,
+        nil,
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.Center
+    )
+
+    DrawTextWithBackground(
+        string.format("%.0fA", sim.ambientTemperature),
+        16,
+        assistsX + 100,
+        assistsY + 47,
+        35,
+        18,
+        nil,
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.Center
+    )
+
+    DrawTextWithBackground(
+        string.format("%.0fT", sim.roadTemperature),
+        16,
+        assistsX + 100,
+        assistsY + 63,
+        35,
+        18,
+        nil,
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.Center
+    )
+
+    DrawTextWithBackground(
+        string.format(sim.roadGrip == 1.0 and "100%%" or "%.1f%%", sim.roadGrip * 100),
+        13,
+        assistsX + 99,
+        assistsY + 80,
+        40,
+        18,
+        nil,
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.Center
+    )
+
+    -- separator between enviro and fuel
+    ui.drawLine(
+        vec2(rightBlocksX + 220, 49),
+        vec2(rightBlocksX + 220, 147),
+        rgbm(1, 1, 1, 0.2),
+        1
+    )
+
+    -- MARK: Fuel
     local fuelText = string.format("LVL %6.2f L", car.fuel):gsub("^%s+", "")
     DrawTextWithBackground(
         fuelText,
         16,
         690,
         54,
-        110,              -- width
-        12,               -- height
-        rgbm(0, 0, 0, 0), -- No background
-        rgbm(1, 1, 1, 1), -- White text
-        ui.Alignment.End  -- Right alignment
+        110,
+        12,
+        rgbm(0, 0, 0, 0),
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.End
     )
 
-    -- Last lap fuel usage display
+    -- Last lap fuel usage
     local lastLapFuel = FuelTracking and FuelTracking.lastLapFuelUsed or 0
     local lastLapFuelText = lastLapFuel > 0
         and string.format("LST %6.2f L", lastLapFuel):gsub("^%s+", "")
@@ -743,15 +975,15 @@ function dash.draw()
         lastLapFuelText,
         16,
         690,
-        54 + (19 * 1),    -- Position below fuel level
-        110,              -- width
-        12,               -- height
-        rgbm(0, 0, 0, 0), -- No background
-        rgbm(1, 1, 1, 1), -- White text
-        ui.Alignment.End  -- Right alignment
+        54 + (19 * 1),
+        110,
+        12,
+        rgbm(0, 0, 0, 0),
+        rgbm(1, 1, 1, 1),
+        ui.Alignment.End
     )
 
-    -- Average fuel per lap display (weighted)
+    -- Average fuel per lap
     local avgFuelPerLap = fuel.getAverageFuelPerLap(FuelTracking or { fuelUsageHistory = {} })
 
     local fuelPerLapText = (avgFuelPerLap > 0)
@@ -813,196 +1045,7 @@ function dash.draw()
         ui.Alignment.End -- Right alignment
     )
 
-    if car.drsPresent then
-        -- DRS indicator background
-        local drsX = 700 - 140 + 10
-        local drsWidth = 40
-        local drsHeight = 38 - 11
-        local drsY = 11
-
-        -- Determine DRS state and color
-        local drsColor = DRSColors.inactive
-        if car.drsActive then
-            drsColor = DRSColors.active
-        elseif car.drsAvailable then
-            drsColor = DRSColors.available
-        end
-
-        -- Draw DRS background and text
-        ui.drawRectFilled(vec2(drsX, drsY), vec2(drsX + drsWidth, drsY + drsHeight), drsColor, 4, ui.CornerFlags.All)
-
-        -- Draw "DRS" text
-        ui.dwriteDrawTextClipped(
-            "DRS",
-            16,
-            vec2(drsX, drsY),
-            vec2(drsX + drsWidth, drsY + drsHeight),
-            ui.Alignment.Center,
-            ui.Alignment.Center,
-            false,
-            rgbm(0, 0, 0, 1) -- Black text
-        )
-    else
-        -- Draw app icon when no DRS
-        local iconX = 700 - 140 + 6
-        local iconY = 1
-        local iconSize = 41
-        ui.drawImage(
-            "icon.png",
-            vec2(iconX, iconY),
-            vec2(iconX + iconSize, iconY + iconSize)
-        )
-    end
-
-    -- Driver assists display (after tire blocks)
-    local assistsX = rightBlocksX + tireBlockWidth + 50 -- Position to the right of tire blocks
-    local assistsY = tireBlockY + 1                     -- Align with other readouts
-
-    -- ABS Display
-    local absText = car.absModes > 0
-        and string.format("%2d/%d", car.absMode, car.absModes)
-        or " N/A"
-    DrawTextWithBackground(
-        "ABS",
-        14, -- Small text for label
-        assistsX,
-        assistsY,
-        29,                                          -- Width for label
-        9,                                           -- Height to match other readouts
-        car.absInAction and AssistColors.abs or nil, -- No background
-        rgbm(1, 1, 1, 1)
-    )
-    DrawTextWithBackground(
-        absText,
-        22,
-        assistsX + 28, -- Position after label
-        assistsY,
-        65,            -- Width for value
-        22,
-        nil,
-        rgbm(1, 1, 1, 1)
-    )
-
-    -- TC Display
-    local tcText = car.tractionControlModes > 0
-        and string.format("%2d/%d", car.tractionControlMode, car.tractionControlModes)
-        or " N/A"
-    DrawTextWithBackground(
-        "TC",
-        14,
-        assistsX,
-        assistsY + 22, -- Stack below ABS
-        21,
-        9,
-        car.tractionControlInAction and AssistColors.tc or nil,
-        rgbm(1, 1, 1, 1)
-    )
-    DrawTextWithBackground(
-        tcText,
-        22,
-        assistsX + 28,
-        assistsY + 22,
-        65,
-        22,
-        nil,
-        rgbm(1, 1, 1, 1)
-    )
-
-    ui.drawLine(
-        vec2(assistsX + 94, assistsY - 4),
-        vec2(assistsX + 94, assistsY + 94),
-        rgbm(1, 1, 1, 0.2),
-        1
-    )
-
-    -- Wind Display
-    DrawTextWithBackground(
-        string.format("%s", GetWindDirectionText(sim.windDirectionDeg)),
-        22,
-        assistsX + 100, -- Position to right of TC/ABS
-        assistsY,
-        35,
-        22,
-        nil,
-        rgbm(1, 1, 1, 1),
-        ui.Alignment.Center
-    )
-    DrawTextWithBackground(
-        string.format("%.0f", sim.windSpeedKmh),
-        22,
-        assistsX + 100,
-        assistsY + 22,
-        35,
-        22,
-        nil,
-        rgbm(1, 1, 1, 1),
-        ui.Alignment.Center
-    )
-
-    DrawTextWithBackground(
-        string.format("%.0fA", sim.ambientTemperature),
-        16,
-        assistsX + 100,
-        assistsY + 47,
-        35,
-        18,
-        nil,
-        rgbm(1, 1, 1, 1),
-        ui.Alignment.Center
-    )
-
-    DrawTextWithBackground(
-        string.format("%.0fT", sim.roadTemperature),
-        16,
-        assistsX + 100,
-        assistsY + 63,
-        35,
-        18,
-        nil,
-        rgbm(1, 1, 1, 1),
-        ui.Alignment.Center
-    )
-
-    DrawTextWithBackground(
-        string.format(sim.roadGrip == 1.0 and "100%%" or "%.1f%%", sim.roadGrip * 100),
-        13,
-        assistsX + 99,
-        assistsY + 80,
-        40,
-        18,
-        nil,
-        rgbm(1, 1, 1, 1),
-        ui.Alignment.Center
-    )
-
-    -- Brake Bias Display
-    DrawTextWithBackground(
-        "BB",
-        14,
-        assistsX,
-        assistsY + 44, -- Stack below TC
-        40,
-        22,
-        nil,
-        rgbm(1, 1, 1, 1)
-    )
-    DrawTextWithBackground(
-        string.format("%.1f%%", car.brakeBias * 100),
-        22,
-        assistsX + 28,
-        assistsY + 44,
-        65,
-        22,
-        nil,
-        rgbm(1, 1, 1, 1)
-    )
-
-    ui.drawLine(
-        vec2(assistsX + 140, assistsY - 4),
-        vec2(assistsX + 140, assistsY + 94),
-        rgbm(1, 1, 1, 0.2),
-        1
-    )
+    -- MARK: Buttons
 
     -- Invisible button to swap SB and PB comparison, like the one in the deltabar
     if ui.rectHovered(vec2(0, 0), vec2(700, 150), false) then
