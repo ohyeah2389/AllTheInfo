@@ -1100,29 +1100,25 @@ end
 loadPersonalBest()
 loadSettings()
 
-local dashPosition = getElementPosition(700, "dash")
-local deltabarPosition = getElementPosition(424, "delta")
-local driftbarPosition = getElementPosition(424, "drift")
-
 
 -- MARK: script.window
 
 
 function script.windowMain(dt)
     if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Dash", dashPosition, vec2(700, 150) * Config.appScaleFactor, true, true, function() dash.draw() end)
+        ui.transparentWindow("AllTheInfo_Dash", getElementPosition(700, "dash"), vec2(700, 150) * Config.appScaleFactor, true, true, function() dash.draw() end)
     end
 end
 
 function script.windowDelta()
     if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Delta", deltabarPosition, vec2(424, 31) * Config.appScaleFactor, true, true, function() deltabar.draw() end)
+        ui.transparentWindow("AllTheInfo_Delta", getElementPosition(424, "delta"), vec2(424, 31) * Config.appScaleFactor, true, true, function() deltabar.draw() end)
     end
 end
 
 function script.windowDrift()
     if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Drift", driftbarPosition, vec2(424, 31) * Config.appScaleFactor, true, true, function() driftbar.draw() end)
+        ui.transparentWindow("AllTheInfo_Drift", getElementPosition(424, "drift"), vec2(424, 31) * Config.appScaleFactor, true, true, function() driftbar.draw() end)
     end
 end
 
@@ -1161,10 +1157,6 @@ function script.windowSettings(dt)
     local newScale, scaleChanged = ui.slider("##appScale", Config.appScaleFactor, 1.0, 5.0, "Scale: %.1fx", 1)
     if scaleChanged then
         Config.appScaleFactor = newScale
-        -- Recalculate positions when scale changes
-        dashPosition = getElementPosition(700, "dash")
-        deltabarPosition = getElementPosition(424, "delta")
-        driftbarPosition = getElementPosition(424, "drift")
         changed = true
     end
 
