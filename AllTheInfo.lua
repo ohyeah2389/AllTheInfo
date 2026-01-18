@@ -81,8 +81,8 @@ local displaySettings = {
         },
         [2560] = { -- 1440p
             dash = { offset = 1430 },
-            delta = { offset = 1050 },
-            drift = { offset = 1050 }
+            delta = { offset = 1278 },
+            drift = { offset = 1278 }
         },
         [7680] = { -- Triple 1440p
             dash = { offset = 1430 },
