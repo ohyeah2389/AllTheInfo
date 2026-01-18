@@ -9,7 +9,8 @@ function dash.draw()
 
     ui.beginScale()
 
-    ui.drawRectFilled(vec2(0, 0), vec2(700, 150), rgbm(0, 0, 0, 0.25), 10, ui.CornerFlags.All)
+    ui.drawRectFilled(vec2(0, 0), vec2(700, 150), rgbm(0, 0, 0, 0.3), 10, ui.CornerFlags.All)
+    ui.drawRect(vec2(0, 0), vec2(700, 150), rgbm(0, 0, 0, 0.3), 10, ui.CornerFlags.All)
 
     -- Load all-time best for current track if not already loaded
     if AllTimeBestLap == 0 and TrackRecords[GetTrackIdentifier()] then

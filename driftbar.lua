@@ -15,6 +15,7 @@ function deltabar.draw()
     ui.beginScale()
 
     ui.drawRectFilled(vec2(0, 0), vec2(424, 31), rgbm(0, 0, 0, 0.25), 5, ui.CornerFlags.All)
+    ui.drawRect(vec2(0, 0), vec2(424, 31), rgbm(0, 0, 0, 0.5), 5, ui.CornerFlags.All)
 
     -- Delta bar settings
     local barWidth = 419 -- Window width (424) - 2px padding
