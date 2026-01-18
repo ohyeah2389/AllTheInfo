@@ -73,31 +73,22 @@ local settingsConfig = {
 
 
 local displaySettings = {
-    positions = {
-        [1680] = { -- 1050p
-            dash = { offset = 1040 },
-            delta = { offset = 800 },
-            drift = { offset = 560 }
+    elements = {
+        dash = {
+            anchor = { x = 0.5, y = 0.0 },
+            offset = { x = 0.0, y = -0.005 }
         },
-        [2560] = { -- 1440p
-            dash = { offset = 1430 },
-            delta = { offset = 1278 },
-            drift = { offset = 1278 }
+        delta = {
+            anchor = { x = 0.5, y = 0.0 },
+            offset = { x = 0.0, y = -0.2675 }
         },
-        [7680] = { -- Triple 1440p
-            dash = { offset = 1430 },
-            delta = { offset = 1050 },
-            drift = { offset = 1050 }
+        drift = {
+            anchor = { x = 0.5, y = 0.0 },
+            offset = { x = 0.0, y = -0.2675 }
         },
-        [1920] = { -- 1080p
-            dash = { offset = 155 },
-            delta = { offset = 190 },
-            drift = { offset = 225 }
-        },
-        default = { -- Default fallback
-            dash = { offset = 155 },
-            delta = { offset = 190 },
-            drift = { offset = 225 }
+        default = {
+            anchor = { x = 0.5, y = 0.5 },
+            offset = { x = 0.0, y = 0.0 }
         }
     }
 }
@@ -320,12 +311,34 @@ function GetWindDirectionText(degrees)
     return "N" -- fallback
 end
 
-local function getElementPosition(elementWidth, elementType)
-    local horizontalCenter = (sim.windowWidth / 2) - ((elementWidth / 2) * Config.appScaleFactor)
-    local preset = displaySettings.positions[sim.windowWidth] or displaySettings.positions.default
-    local verticalOffset = preset[elementType].offset
+local function getElementPosition(elementSize, elementType)
+    local elementConfig = displaySettings.elements[elementType] or displaySettings.elements.default
+    local anchor = elementConfig.anchor or displaySettings.elements.default.anchor
+    local offset = elementConfig.offset or displaySettings.elements.default.offset
+    local scaledWidth = elementSize.x * Config.appScaleFactor
+    local scaledHeight = elementSize.y * Config.appScaleFactor
+    local aspectRatio = sim.windowWidth / sim.windowHeight
+    local lateralWidth = sim.windowWidth
+    local lateralOrigin = 0
+    if aspectRatio > 2.5 then
+        lateralWidth = sim.windowWidth / 3
+        lateralOrigin = (sim.windowWidth - lateralWidth) / 2
+    end
+    local lateralBaseX = (lateralWidth * anchor.x) - (scaledWidth * anchor.x)
+    local baseX = lateralOrigin + lateralBaseX
+    local baseY = (sim.windowHeight * anchor.y) - (scaledHeight * anchor.y)
+    local offsetBasisX = lateralBaseX
+    if offsetBasisX == 0 then
+        offsetBasisX = lateralWidth
+    end
+    local offsetBasisY = baseY
+    if offsetBasisY == 0 then
+        offsetBasisY = sim.windowHeight
+    end
+    local finalX = baseX - (-offset.x * offsetBasisX)
+    local finalY = baseY - (offset.y * offsetBasisY)
 
-    return vec2(horizontalCenter, sim.windowHeight - verticalOffset)
+    return vec2(finalX, finalY)
 end
 
 -- Math helper function, like Map Range in Blender
@@ -1106,19 +1119,22 @@ loadSettings()
 
 function script.windowMain(dt)
     if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Dash", getElementPosition(700, "dash"), vec2(700, 150) * Config.appScaleFactor, true, true, function() dash.draw() end)
+        local dashSize = vec2(700, 150)
+        ui.transparentWindow("AllTheInfo_Dash", getElementPosition(dashSize, "dash"), dashSize * Config.appScaleFactor, true, true, function() dash.draw() end)
     end
 end
 
 function script.windowDelta()
     if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Delta", getElementPosition(424, "delta"), vec2(424, 31) * Config.appScaleFactor, true, true, function() deltabar.draw() end)
+        local deltaSize = vec2(424, 31)
+        ui.transparentWindow("AllTheInfo_Delta", getElementPosition(deltaSize, "delta"), deltaSize * Config.appScaleFactor, true, true, function() deltabar.draw() end)
     end
 end
 
 function script.windowDrift()
     if not ac.isInReplayMode() then
-        ui.transparentWindow("AllTheInfo_Drift", getElementPosition(424, "drift"), vec2(424, 31) * Config.appScaleFactor, true, true, function() driftbar.draw() end)
+        local driftSize = vec2(424, 31)
+        ui.transparentWindow("AllTheInfo_Drift", getElementPosition(driftSize, "drift"), driftSize * Config.appScaleFactor, true, true, function() driftbar.draw() end)
     end
 end
 
