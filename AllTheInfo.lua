@@ -323,7 +323,7 @@ end
 local function getElementPosition(elementWidth, elementType)
     local horizontalCenter = (sim.windowWidth / 2) - ((elementWidth / 2) * Config.appScaleFactor)
     local preset = displaySettings.positions[sim.windowWidth] or displaySettings.positions.default
-    local verticalOffset = preset[elementType].offset * Config.appScaleFactor
+    local verticalOffset = preset[elementType].offset
 
     return vec2(horizontalCenter, sim.windowHeight - verticalOffset)
 end
