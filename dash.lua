@@ -511,7 +511,7 @@ function dash.draw()
         124,
         72,
         16,
-        posColor,
+        nil,
         rgbm(1, 1, 1, 1),
         ui.Alignment.Start
     )
