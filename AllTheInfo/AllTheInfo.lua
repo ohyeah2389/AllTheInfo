@@ -831,7 +831,7 @@ local function storeLap()
             }
             -- Save to INI file
             local success, ini = pcall(function()
-                local newIni = ac.INIConfig.new()
+                local newIni = ac.INIConfig(ac.INIFormat.Default, {})
                 for track, data in pairs(TrackRecords) do
                     if type(data) == 'table' and type(data.time) == 'number' then
                         newIni:set(track, 'time', tostring(data.time))
