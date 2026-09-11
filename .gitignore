@@ -3,3 +3,4 @@ track_records/
 releases/
 settings.txt
 *.code-workspace
+.vscode/
