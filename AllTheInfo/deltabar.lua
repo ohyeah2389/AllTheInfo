@@ -1,5 +1,3 @@
-local sim = ac.getSim()
-
 local deltabar = {}
 
 function deltabar.draw()
@@ -160,7 +158,7 @@ function deltabar.draw()
                 ui.Alignment.Center,
                 ui.Alignment.Center,
                 false,
-                rgbm(1, 1, 1, Delta.trackHasCenterline and (math.sin(sim.time * 0.003) + 2) / 3 or 0.6)
+                rgbm(1, 1, 1, Delta.trackHasCenterline and (math.sin(Sim.time * 0.003) + 2) / 3 or 0.6)
             )
         end
     end

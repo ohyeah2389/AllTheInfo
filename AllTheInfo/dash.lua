@@ -1,6 +1,4 @@
-local car = ac.getCar(0)
-local sim = ac.getSim()
-local fuel = require("modules.fuel")
+local Fuel = require("modules.fuel")
 
 local dash = {}
 
@@ -21,7 +19,7 @@ function dash.draw()
 
     -- Gear
     DrawTextWithBackground(
-        car.gear == -1 and "R" or (car.gear == 0 and "N" or tostring(car.gear)),
+        Car.gear == -1 and "R" or (Car.gear == 0 and "N" or tostring(Car.gear)),
         40,
         13,
         9,
@@ -34,7 +32,7 @@ function dash.draw()
 
     -- RPM
     ui.dwriteDrawTextClipped(
-        string.format("%d", car.rpm),
+        string.format("%d", Car.rpm),
         32,
         vec2(32, 9),
         vec2(132, 43),
@@ -51,8 +49,8 @@ function dash.draw()
     local rpmBarWidth = rpmBarEndX - rpmBarStartX
 
     ui.drawRectFilled(vec2(rpmBarStartX, 11), vec2(rpmBarEndX, 38), rgbm(0.2, 0.2, 0.2, 0.9), 4, ui.CornerFlags.All)
-    local progressWidth = MapRange(math.clamp(car.rpm, 0, car.rpmLimiter * Config.rpm.lightsStart), 0, car.rpmLimiter * Config.rpm.lightsStart, 0, rpmBarWidth - rpmBarPadding * 2, true)
-    local greyBarProgress = MapRange(car.rpm, car.rpmLimiter * Config.rpm.fadeStart, car.rpmLimiter * Config.rpm.lightsStart, 0.5, 0.1, true)
+    local progressWidth = MapRange(math.clamp(Car.rpm, 0, Car.rpmLimiter * Config.rpm.lightsStart), 0, Car.rpmLimiter * Config.rpm.lightsStart, 0, rpmBarWidth - rpmBarPadding * 2, true)
+    local greyBarProgress = MapRange(Car.rpm, Car.rpmLimiter * Config.rpm.fadeStart, Car.rpmLimiter * Config.rpm.lightsStart, 0.5, 0.1, true)
     ui.drawRectFilled(vec2(rpmBarStartX + rpmBarPadding, 13), vec2(rpmBarStartX + rpmBarPadding + progressWidth, 36), rgbm(0.8, 0.8, 0.8, greyBarProgress), 3, ui.CornerFlags.All)
 
     -- RPM light sections
@@ -62,11 +60,11 @@ function dash.draw()
         local sectionEndX = rpmBarEndX - 4
         local totalWidth = sectionEndX - sectionStartX
         local sectionWidth = totalWidth / numSections
-        local rpmStart = car.rpmLimiter * Config.rpm.lightsStart
-        local rpmRange = (car.rpmLimiter * Config.rpm.shiftPoint) - rpmStart
-        local isOverShiftPoint = car.rpm >= (car.rpmLimiter * Config.rpm.shiftPoint)
-        local isOverRedline = car.rpm >= (car.rpmLimiter - 50)
-        local flashState = isOverRedline and math.floor(sim.time * 0.02) % 2 == 0
+        local rpmStart = Car.rpmLimiter * Config.rpm.lightsStart
+        local rpmRange = (Car.rpmLimiter * Config.rpm.shiftPoint) - rpmStart
+        local isOverShiftPoint = Car.rpm >= (Car.rpmLimiter * Config.rpm.shiftPoint)
+        local isOverRedline = Car.rpm >= (Car.rpmLimiter - 50)
+        local flashState = isOverRedline and math.floor(Sim.time * 0.02) % 2 == 0
         for i = 0, numSections - 1 do
             local x1 = sectionStartX + (sectionWidth * i)
             local x2 = sectionStartX + (sectionWidth * (i + 1))
@@ -76,7 +74,7 @@ function dash.draw()
 
             -- Only show section if RPM is high enough
             local sectionRpmThreshold = rpmStart + (rpmRange * (i / numSections))
-            if car.rpm >= sectionRpmThreshold then
+            if Car.rpm >= sectionRpmThreshold then
                 -- Set color based on whether we're over redline
                 local color
                 if isOverRedline then
@@ -85,7 +83,7 @@ function dash.draw()
                     else
                         color = rgbm(1, 0, 0, 1)
                     end
-                elseif isOverShiftPoint and (car.gear ~= car.gearCount) then
+                elseif isOverShiftPoint and (Car.gear ~= Car.gearCount) then
                     color = rgbm(0, 0.4, 1, 1)
                 else
                     if i < (numSections / 3) then
@@ -103,7 +101,7 @@ function dash.draw()
 
     -- Speed
     ui.dwriteDrawTextClipped(
-        string.format("%d", car.speedKmh),
+        string.format("%d", Car.speedKmh),
         32,
         vec2(590, 9),
         vec2(690, 43),
@@ -114,7 +112,7 @@ function dash.draw()
     )
 
     -- Boost bar
-    if car.turboCount > 0 then
+    if Car.turboCount > 0 then
         local boostBarStartX = 140
         local boostBarWidth = 420 -- 560 - 140
         local boostBarY1 = 3
@@ -122,7 +120,7 @@ function dash.draw()
 
         ui.drawRectFilled(vec2(boostBarStartX, boostBarY1), vec2(boostBarStartX + boostBarWidth, boostBarY2),
             rgbm(0.15, 0.15, 0.15, 0.9), 2)
-        local boostPercent = math.clamp(car.turboBoost / MaxSeenBoost, 0.0, 1.0)
+        local boostPercent = math.clamp(Car.turboBoost / MaxSeenBoost, 0.0, 1.0)
         local boostWidth = boostBarWidth * boostPercent
         local boostColor
 
@@ -166,7 +164,7 @@ function dash.draw()
         )
     end
 
-    if car.drsPresent then
+    if Car.drsPresent then
         -- DRS indicator background
         local drsX = 700 - 140 + 10
         local drsWidth = 40
@@ -175,9 +173,9 @@ function dash.draw()
 
         -- Determine DRS state and color
         local drsColor = DRSColors.inactive
-        if car.drsActive then
+        if Car.drsActive then
             drsColor = DRSColors.active
-        elseif car.drsAvailable then
+        elseif Car.drsAvailable then
             drsColor = DRSColors.available
         end
 
@@ -385,7 +383,7 @@ function dash.draw()
 
     -- MARK: Time/Laps
     local sessionTotalTimeSec = ac.getSession(CurrentSessionIndex).durationMinutes * 60
-    local timeLeftSec = sim.sessionTimeLeft / 1000
+    local timeLeftSec = Sim.sessionTimeLeft / 1000
     local isTimedRace = timeLeftSec > 0
     local timeLeftFade = timeLeftSec <= 0 and 1 or math.smoothstep(MapRange(math.abs(timeLeftSec - sessionTotalTimeSec), 5.5, 10, 0, 1, true) ^ 0.5)
 
@@ -540,17 +538,17 @@ function dash.draw()
     local leftBlocksX = centerX - tireBlockWidth - (tireBlockSpacing / 2)
     local rightBlocksX = centerX + (tireBlockSpacing / 2)
 
-    local tireCoreTemps = { car.wheels[ac.Wheel.FrontLeft].tyreCoreTemperature, car.wheels[ac.Wheel.FrontRight].tyreCoreTemperature, car.wheels[ac.Wheel.RearLeft].tyreCoreTemperature, car.wheels[ac.Wheel.RearRight].tyreCoreTemperature }
-    local tireInnerTemps = { car.wheels[ac.Wheel.FrontLeft].tyreInsideTemperature, car.wheels[ac.Wheel.FrontRight].tyreInsideTemperature, car.wheels[ac.Wheel.RearLeft].tyreInsideTemperature, car.wheels[ac.Wheel.RearRight].tyreInsideTemperature }
-    local tireMiddleTemps = { car.wheels[ac.Wheel.FrontLeft].tyreMiddleTemperature, car.wheels[ac.Wheel.FrontRight].tyreMiddleTemperature, car.wheels[ac.Wheel.RearLeft].tyreMiddleTemperature, car.wheels[ac.Wheel.RearRight].tyreMiddleTemperature }
-    local tireOuterTemps = { car.wheels[ac.Wheel.FrontLeft].tyreOutsideTemperature, car.wheels[ac.Wheel.FrontRight].tyreOutsideTemperature, car.wheels[ac.Wheel.RearLeft].tyreOutsideTemperature, car.wheels[ac.Wheel.RearRight].tyreOutsideTemperature }
+    local tireCoreTemps = { Car.wheels[ac.Wheel.FrontLeft].tyreCoreTemperature, Car.wheels[ac.Wheel.FrontRight].tyreCoreTemperature, Car.wheels[ac.Wheel.RearLeft].tyreCoreTemperature, Car.wheels[ac.Wheel.RearRight].tyreCoreTemperature }
+    local tireInnerTemps = { Car.wheels[ac.Wheel.FrontLeft].tyreInsideTemperature, Car.wheels[ac.Wheel.FrontRight].tyreInsideTemperature, Car.wheels[ac.Wheel.RearLeft].tyreInsideTemperature, Car.wheels[ac.Wheel.RearRight].tyreInsideTemperature }
+    local tireMiddleTemps = { Car.wheels[ac.Wheel.FrontLeft].tyreMiddleTemperature, Car.wheels[ac.Wheel.FrontRight].tyreMiddleTemperature, Car.wheels[ac.Wheel.RearLeft].tyreMiddleTemperature, Car.wheels[ac.Wheel.RearRight].tyreMiddleTemperature }
+    local tireOuterTemps = { Car.wheels[ac.Wheel.FrontLeft].tyreOutsideTemperature, Car.wheels[ac.Wheel.FrontRight].tyreOutsideTemperature, Car.wheels[ac.Wheel.RearLeft].tyreOutsideTemperature, Car.wheels[ac.Wheel.RearRight].tyreOutsideTemperature }
     local tireOptimumTemps = {
-        car.wheels[ac.Wheel.FrontLeft].tyreOptimumTemperature or 80,
-        car.wheels[ac.Wheel.FrontRight].tyreOptimumTemperature or 80,
-        car.wheels[ac.Wheel.RearLeft].tyreOptimumTemperature or 80,
-        car.wheels[ac.Wheel.RearRight].tyreOptimumTemperature or 80
+        Car.wheels[ac.Wheel.FrontLeft].tyreOptimumTemperature or 80,
+        Car.wheels[ac.Wheel.FrontRight].tyreOptimumTemperature or 80,
+        Car.wheels[ac.Wheel.RearLeft].tyreOptimumTemperature or 80,
+        Car.wheels[ac.Wheel.RearRight].tyreOptimumTemperature or 80
     }
-    local tirePressures = { car.wheels[ac.Wheel.FrontLeft].tyrePressure, car.wheels[ac.Wheel.FrontRight].tyrePressure, car.wheels[ac.Wheel.RearLeft].tyrePressure, car.wheels[ac.Wheel.RearRight].tyrePressure }
+    local tirePressures = { Car.wheels[ac.Wheel.FrontLeft].tyrePressure, Car.wheels[ac.Wheel.FrontRight].tyrePressure, Car.wheels[ac.Wheel.RearLeft].tyrePressure, Car.wheels[ac.Wheel.RearRight].tyrePressure }
     local tireFL_grip = GetTireGripFromWear(0)
     local tireFR_grip = GetTireGripFromWear(1)
     local tireRL_grip = GetTireGripFromWear(2)
@@ -559,10 +557,10 @@ function dash.draw()
     -- Load tire data
     local tireData = ac.INIConfig.carData(0, "tyres.ini")
     local tireOptimumPressures = {
-        tonumber(tireData:get(car.compoundIndex == 0 and "FRONT" or "FRONT_" .. (car.compoundIndex + 1), "PRESSURE_IDEAL", 26)),
-        tonumber(tireData:get(car.compoundIndex == 0 and "FRONT" or "FRONT_" .. (car.compoundIndex + 1), "PRESSURE_IDEAL", 26)),
-        tonumber(tireData:get(car.compoundIndex == 0 and "REAR" or "REAR_" .. (car.compoundIndex + 1), "PRESSURE_IDEAL", 26)),
-        tonumber(tireData:get(car.compoundIndex == 0 and "REAR" or "REAR_" .. (car.compoundIndex + 1), "PRESSURE_IDEAL", 26))
+        tonumber(tireData:get(Car.compoundIndex == 0 and "FRONT" or "FRONT_" .. (Car.compoundIndex + 1), "PRESSURE_IDEAL", 26)),
+        tonumber(tireData:get(Car.compoundIndex == 0 and "FRONT" or "FRONT_" .. (Car.compoundIndex + 1), "PRESSURE_IDEAL", 26)),
+        tonumber(tireData:get(Car.compoundIndex == 0 and "REAR" or "REAR_" .. (Car.compoundIndex + 1), "PRESSURE_IDEAL", 26)),
+        tonumber(tireData:get(Car.compoundIndex == 0 and "REAR" or "REAR_" .. (Car.compoundIndex + 1), "PRESSURE_IDEAL", 26))
     }
     local tireExplosionTemp = tonumber(tireData:get("EXPLOSION", "TEMPERATURE", (tireOptimumTemps[1] * 3)))
 
@@ -780,8 +778,8 @@ function dash.draw()
     local assistsY = tireBlockY + 2
 
     -- TC
-    local tcText = car.tractionControlModes > 0
-        and string.format("%2d/%d", car.tractionControlMode, car.tractionControlModes)
+    local tcText = Car.tractionControlModes > 0
+        and string.format("%2d/%d", Car.tractionControlMode, Car.tractionControlModes)
         or " N/A"
     DrawTextWithBackground(
         "TC1",
@@ -790,7 +788,7 @@ function dash.draw()
         assistsY,
         29,
         9,
-        car.tractionControlInAction and AssistColors.tc or nil,
+        Car.tractionControlInAction and AssistColors.tc or nil,
         rgbm(1, 1, 1, 1)
     )
     DrawTextWithBackground(
@@ -805,8 +803,8 @@ function dash.draw()
     )
 
     -- TC2
-    local tc2Text = car.tractionControl2 > 0
-        and string.format("%2d/%d", car.tractionControl2, car.tractionControl2Modes)
+    local tc2Text = Car.tractionControl2 > 0
+        and string.format("%2d/%d", Car.tractionControl2, Car.tractionControl2Modes)
         or " N/A"
     DrawTextWithBackground(
         "TC2",
@@ -815,7 +813,7 @@ function dash.draw()
         assistsY + 23,
         29,
         9,
-        car.tractionControlInAction and AssistColors.tc or nil,
+        Car.tractionControlInAction and AssistColors.tc or nil,
         rgbm(1, 1, 1, 1)
     )
     DrawTextWithBackground(
@@ -830,8 +828,8 @@ function dash.draw()
     )
 
     -- ABS
-    local absText = car.absModes > 0
-        and string.format("%2d/%d", car.absMode, car.absModes)
+    local absText = Car.absModes > 0
+        and string.format("%2d/%d", Car.absMode, Car.absModes)
         or " N/A"
     DrawTextWithBackground(
         "ABS",
@@ -840,7 +838,7 @@ function dash.draw()
         assistsY + 46,
         29,
         9,
-        car.absInAction and AssistColors.abs or nil,
+        Car.absInAction and AssistColors.abs or nil,
         rgbm(1, 1, 1, 1)
     )
     DrawTextWithBackground(
@@ -866,7 +864,7 @@ function dash.draw()
         rgbm(1, 1, 1, 1)
     )
     DrawTextWithBackground(
-        string.format("%.1f%%", car.brakeBias * 100),
+        string.format("%.1f%%", Car.brakeBias * 100),
         22,
         assistsX + 28,
         assistsY + 69,
@@ -886,7 +884,7 @@ function dash.draw()
 
     -- MARK: Enviro
     DrawTextWithBackground(
-        string.format("%s", GetWindDirectionText(sim.windDirectionDeg)),
+        string.format("%s", GetWindDirectionText(Sim.windDirectionDeg)),
         22,
         assistsX + 100,
         assistsY,
@@ -897,7 +895,7 @@ function dash.draw()
         ui.Alignment.Center
     )
     DrawTextWithBackground(
-        string.format("%.0f", sim.windSpeedKmh),
+        string.format("%.0f", Sim.windSpeedKmh),
         22,
         assistsX + 100,
         assistsY + 23,
@@ -909,7 +907,7 @@ function dash.draw()
     )
 
     DrawTextWithBackground(
-        string.format("%.0fA", sim.ambientTemperature),
+        string.format("%.0fA", Sim.ambientTemperature),
         16,
         assistsX + 100,
         assistsY + 47,
@@ -921,7 +919,7 @@ function dash.draw()
     )
 
     DrawTextWithBackground(
-        string.format("%.0fT", sim.roadTemperature),
+        string.format("%.0fT", Sim.roadTemperature),
         16,
         assistsX + 100,
         assistsY + 63,
@@ -933,7 +931,7 @@ function dash.draw()
     )
 
     DrawTextWithBackground(
-        string.format(sim.roadGrip == 1.0 and "100%%" or "%.1f%%", sim.roadGrip * 100),
+        string.format(Sim.roadGrip == 1.0 and "100%%" or "%.1f%%", Sim.roadGrip * 100),
         13,
         assistsX + 99,
         assistsY + 80,
@@ -953,7 +951,7 @@ function dash.draw()
     )
 
     -- MARK: Fuel
-    local fuelText = string.format("LVL %6.2f L", car.fuel):gsub("^%s+", "")
+    local fuelText = string.format("LVL %6.2f L", Car.fuel):gsub("^%s+", "")
     DrawTextWithBackground(
         fuelText,
         16,
@@ -984,7 +982,7 @@ function dash.draw()
     )
 
     -- Average fuel per lap
-    local avgFuelPerLap = fuel.getAverageFuelPerLap(FuelTracking or { fuelUsageHistory = {} })
+    local avgFuelPerLap = Fuel.getAverageFuelPerLap(FuelTracking or { fuelUsageHistory = {} })
 
     local fuelPerLapText = (avgFuelPerLap > 0)
         and string.format("AVG %6.2f L", avgFuelPerLap):gsub("^%s+", "")
@@ -1007,9 +1005,9 @@ function dash.draw()
     local possibleLapsBg = rgbm(0, 0, 0, 0)    -- Default transparent background
 
     if avgFuelPerLap > 0 then
-        local lapsLeft = car.fuel / avgFuelPerLap
+        local lapsLeft = Car.fuel / avgFuelPerLap
         possibleLaps = string.format("%.1f", lapsLeft)
-        possibleLapsColor, possibleLapsBg = fuel.getFuelStatusColors(nil, lapsLeft)
+        possibleLapsColor, possibleLapsBg = Fuel.getFuelStatusColors(nil, lapsLeft)
     end
 
     local possibleLapsText = string.format("LPS%6s LP", possibleLaps):gsub("^%s+", "")
@@ -1027,11 +1025,11 @@ function dash.draw()
 
     -- Calculate remaining laps and fuel for race
     local remainingLaps = EstimateRemainingLaps()
-    local fuelRemaining = fuel.calculateRaceEndFuel(car, avgFuelPerLap, remainingLaps)
+    local fuelRemaining = Fuel.calculateRaceEndFuel(Car, avgFuelPerLap, remainingLaps)
 
     -- Always show the END fuel display, but with different values based on race state
     local fuelRemainingText = fuelRemaining and string.format("END %6.2f L", fuelRemaining):gsub("^%s+", "") or "END  --.-- L"
-    local fuelTextColor, fuelBgColor = fuel.getFuelStatusColors(fuelRemaining, remainingLaps)
+    local fuelTextColor, fuelBgColor = Fuel.getFuelStatusColors(fuelRemaining, remainingLaps)
 
     DrawTextWithBackground(
         fuelRemainingText,

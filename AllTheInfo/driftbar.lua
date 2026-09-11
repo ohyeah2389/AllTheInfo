@@ -1,6 +1,3 @@
-local car = ac.getCar(0)
-local sim = ac.getSim()
-
 local state = {
     lastAngle = 0,
     angleDeltas = {0, 0, 0, 0, 0}, -- Circular buffer for last 5 angle changes
@@ -28,8 +25,8 @@ function deltabar.draw()
     local smallTickHeight = 5
     local tickColor = 0.2 -- Constant opacity for ticks
 
-    local speedFadeout = MapRange(car.speedKmh, 2, 10, 0, 1, true)
-    local currentAngle = (math.atan2(car.localVelocity.x, car.localVelocity.z) * 180 / math.pi) * speedFadeout
+    local speedFadeout = MapRange(Car.speedKmh, 2, 10, 0, 1, true)
+    local currentAngle = (math.atan2(Car.localVelocity.x, Car.localVelocity.z) * 180 / math.pi) * speedFadeout
 
     -- Store the raw angle change in circular buffer
     local rawAngleChange = (currentAngle - state.lastAngle) * ac.getScriptDeltaT()

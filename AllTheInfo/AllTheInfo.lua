@@ -3,16 +3,16 @@
 
 DEBUG = false
 
-local car = ac.getCar(0) or {}
-local sim = ac.getSim()
-local session = ac.getSession(sim.currentSessionIndex) or {}
-CurrentSessionIndex = sim.currentSessionIndex
+Car = ac.getCar(0) or {}
+Sim = ac.getSim()
+Session = ac.getSession(Sim.currentSessionIndex) or {}
+CurrentSessionIndex = Sim.currentSessionIndex
 Font_whiteRabbit = ui.DWriteFont("fonts/whitrabt.ttf")
 
-local deltabar = require("deltabar")
-local dash = require("dash")
-local driftbar = require("driftbar")
-local fuel = require("modules.fuel")
+local Deltabar = require("deltabar")
+local Dash = require("dash")
+local Driftbar = require("driftbar")
+local Fuel = require("modules.fuel")
 
 -- UI Settings
 Config = {
@@ -210,7 +210,7 @@ local timeExpired = false
 -- Fuel tracking
 FuelTracking = {
     fuelUsageHistory = {},
-    lastLapFuelLevel = car.fuel,
+    lastLapFuelLevel = Car.fuel,
     lastLapFuelUsed = 0,
     personalBestFuelUsage = nil,
     lapCountWhenTimeExpired = 0,
@@ -317,23 +317,23 @@ local function getElementPosition(elementSize, elementType)
     local offset = elementConfig.offset or displaySettings.elements.default.offset
     local scaledWidth = elementSize.x * Config.appScaleFactor
     local scaledHeight = elementSize.y * Config.appScaleFactor
-    local aspectRatio = sim.windowWidth / sim.windowHeight
-    local lateralWidth = sim.windowWidth
+    local aspectRatio = Sim.windowWidth / Sim.windowHeight
+    local lateralWidth = Sim.windowWidth
     local lateralOrigin = 0
     if aspectRatio > 2.5 then
-        lateralWidth = sim.windowWidth / 3
-        lateralOrigin = (sim.windowWidth - lateralWidth) / 2
+        lateralWidth = Sim.windowWidth / 3
+        lateralOrigin = (Sim.windowWidth - lateralWidth) / 2
     end
     local lateralBaseX = (lateralWidth * anchor.x) - (scaledWidth * anchor.x)
     local baseX = lateralOrigin + lateralBaseX
-    local baseY = (sim.windowHeight * anchor.y) - (scaledHeight * anchor.y)
+    local baseY = (Sim.windowHeight * anchor.y) - (scaledHeight * anchor.y)
     local offsetBasisX = lateralBaseX
     if offsetBasisX == 0 then
         offsetBasisX = lateralWidth
     end
     local offsetBasisY = baseY
     if offsetBasisY == 0 then
-        offsetBasisY = sim.windowHeight
+        offsetBasisY = Sim.windowHeight
     end
     local finalX = baseX - (-offset.x * offsetBasisX)
     local finalY = baseY - (offset.y * offsetBasisY)
@@ -543,7 +543,7 @@ local function resetSessionData(guardFirstLap)
 
     -- Reset fuel tracking for new session
     FuelTracking.fuelUsageHistory = {}
-    FuelTracking.lastLapFuelLevel = car.fuel
+    FuelTracking.lastLapFuelLevel = Car.fuel
     FuelTracking.lastLapFuelUsed = 0
     FuelTracking.currentLapIsInvalid = false
     FuelTracking.bestLapValue = 0
@@ -573,13 +573,13 @@ local function resetSessionData(guardFirstLap)
     Delta.trackHasCenterline = true
     centerlineCheckTime = 0
 
-    print("Session data reset completed - Lap count:" .. car.lapCount)
+    print("Session data reset completed - Lap count:" .. Car.lapCount)
 end
 
 
 local function handleSessionStart(sessionIndex, guardFirstLap)
-    CurrentSessionIndex = sessionIndex or sim.currentSessionIndex
-    session = ac.getSession(CurrentSessionIndex) or {}
+    CurrentSessionIndex = sessionIndex or Sim.currentSessionIndex
+    Session = ac.getSession(CurrentSessionIndex) or {}
     resetSessionData(guardFirstLap)
 end
 
@@ -702,8 +702,8 @@ local function getLapDelta()
     end
 
     local deltaT = ac.getGameDeltaT()
-    local currentLapTime = car.lapTimeMs
-    local lapProgress = car.splinePosition
+    local currentLapTime = Car.lapTimeMs
+    local lapProgress = Car.splinePosition
 
     -- Combined early exits and lap reset
     if currentLapTime > 500 and currentLapTime < 1000 then
@@ -727,7 +727,7 @@ local function getLapDelta()
     -- Combined early exit conditions
     if currentLapTime <= 500 or lapProgress <= 0.001 or lapProgress >= 0.999 or
         #(Config.delta.compareMode == "SESSION" and bestPosList or personalBestPosList) == 0 then
-        return lastGoodDelta and (sim.time - lastGoodDeltaTime) < Config.delta.extrapolationTime and
+        return lastGoodDelta and (Sim.time - lastGoodDeltaTime) < Config.delta.extrapolationTime and
             lastGoodDelta + (lastGoodDeltaChangeRate or 0) * deltaT or nil, lastGoodDeltaChangeRate
     end
 
@@ -769,13 +769,13 @@ local function getLapDelta()
         end
 
         prevt2, prevt = prevt, delta
-        lastGoodDelta, lastGoodDeltaTime, lastGoodDeltaChangeRate = delta, sim.time, trend
+        lastGoodDelta, lastGoodDeltaTime, lastGoodDeltaChangeRate = delta, Sim.time, trend
 
         return delta, trend
     end
 
     -- Extrapolation fallback
-    return lastGoodDelta and (sim.time - lastGoodDeltaTime) < Config.delta.extrapolationTime and
+    return lastGoodDelta and (Sim.time - lastGoodDeltaTime) < Config.delta.extrapolationTime and
         lastGoodDelta + (lastGoodDeltaChangeRate or 0) * deltaT or nil, lastGoodDeltaChangeRate
 end
 
@@ -1027,10 +1027,10 @@ function EstimateRemainingLaps()
     FuelTracking.lastLapValue = LastLapValue
     FuelTracking.lapCountWhenTimeExpired = lapCountWhenTimeExpired
 
-    return fuel.estimateRemainingLaps(
-        sim,
-        session,
-        car,
+    return Fuel.estimateRemainingLaps(
+        Sim,
+        Session,
+        Car,
         { deltaCompareMode = Config.delta.compareMode },
         FuelTracking,
         {
@@ -1120,21 +1120,21 @@ loadSettings()
 function script.windowMain(dt)
     if not ac.isInReplayMode() then
         local dashSize = vec2(700, 150)
-        ui.transparentWindow("AllTheInfo_Dash", getElementPosition(dashSize, "dash"), dashSize * Config.appScaleFactor, true, true, function() dash.draw() end)
+        ui.transparentWindow("AllTheInfo_Dash", getElementPosition(dashSize, "dash"), dashSize * Config.appScaleFactor, true, true, function() Dash.draw() end)
     end
 end
 
 function script.windowDelta()
     if not ac.isInReplayMode() then
         local deltaSize = vec2(424, 31)
-        ui.transparentWindow("AllTheInfo_Delta", getElementPosition(deltaSize, "delta"), deltaSize * Config.appScaleFactor, true, true, function() deltabar.draw() end)
+        ui.transparentWindow("AllTheInfo_Delta", getElementPosition(deltaSize, "delta"), deltaSize * Config.appScaleFactor, true, true, function() Deltabar.draw() end)
     end
 end
 
 function script.windowDrift()
     if not ac.isInReplayMode() then
         local driftSize = vec2(424, 31)
-        ui.transparentWindow("AllTheInfo_Drift", getElementPosition(driftSize, "drift"), driftSize * Config.appScaleFactor, true, true, function() driftbar.draw() end)
+        ui.transparentWindow("AllTheInfo_Drift", getElementPosition(driftSize, "drift"), driftSize * Config.appScaleFactor, true, true, function() Driftbar.draw() end)
     end
 end
 
@@ -1286,7 +1286,7 @@ end
 
 ---@diagnostic disable: duplicate-set-field
 function script.update()
-    local sessionActive = sim.isSessionStarted and not sim.isSessionFinished
+    local sessionActive = Sim.isSessionStarted and not Sim.isSessionFinished
     if not sessionActive then
         Delta.currentDelta, Delta.currentDeltaChangeRate = nil, nil
         return
@@ -1297,30 +1297,30 @@ function script.update()
         centerlineCheckTime = centerlineCheckTime + ac.getGameDeltaT()
 
         -- If we're in a lap with reasonable time but splinePosition is still 0, assume no centerline
-        if car.lapTimeMs > 5000 and car.splinePosition == 0 then
+        if Car.lapTimeMs > 5000 and Car.splinePosition == 0 then
             if Delta.trackHasCenterline then
                 if DEBUG then
                     ac.log("Track has no AI centerline - delta calculations disabled")
                 end
                 Delta.trackHasCenterline = false
             end
-        elseif car.splinePosition > 0.001 then
+        elseif Car.splinePosition > 0.001 then
             -- We found a valid spline position, track has centerline
             Delta.trackHasCenterline = true
         end
     end
 
     -- Reset tire LUTs if compound changes
-    if car.compoundIndex ~= currentCompoundIndex then
+    if Car.compoundIndex ~= currentCompoundIndex then
         tireWearLUTs.front = nil
         tireWearLUTs.rear = nil
-        currentCompoundIndex = car.compoundIndex
+        currentCompoundIndex = Car.compoundIndex
     end
 
-    local lapCount = car.lapCount
+    local lapCount = Car.lapCount
 
     -- Invalidate lap if car enters pits
-    if car.isInPitlane then
+    if Car.isInPitlane then
         CurrentLapIsInvalid = true
     end
 
@@ -1329,11 +1329,11 @@ function script.update()
         -- Skip the first lapCount bump after a session reset to avoid false lap completion at race start
         if sessionJustReset then
             previousLapCount = lapCount
-            FuelTracking.lastLapFuelLevel = car.fuel
+            FuelTracking.lastLapFuelLevel = Car.fuel
             CurrentLapIsInvalid = false
             sessionJustReset = false
         else
-            LastLapValue = car.previousLapTimeMs
+            LastLapValue = Car.previousLapTimeMs
 
             -- Remember validity state of the lap that just finished
             PreviousLapValidityValue = CurrentLapIsInvalid
@@ -1347,7 +1347,7 @@ function script.update()
             FuelTracking.lapCountWhenTimeExpired = lapCountWhenTimeExpired
 
             if FuelTracking.lastLapFuelLevel > 0 then
-                fuel.processLapFuelUsage(car, FuelTracking, fuelConstants)
+                Fuel.processLapFuelUsage(Car, FuelTracking, fuelConstants)
             end
 
             -- Store lap information
@@ -1359,12 +1359,12 @@ function script.update()
         end
     end
 
-    if car.wheelsOutside > 2 then  -- If more than 2 wheels are outside
+    if Car.wheelsOutside > 2 then  -- If more than 2 wheels are outside
         CurrentLapIsInvalid = true -- Mark lap as invalid
     end
 
-    if car.turboBoost > MaxSeenBoost then
-        MaxSeenBoost = car.turboBoost
+    if Car.turboBoost > MaxSeenBoost then
+        MaxSeenBoost = Car.turboBoost
     end
 
     -- Calculate delta once per update (only if track has centerline)
@@ -1378,25 +1378,25 @@ function script.update()
         -- Debug output for delta calculation
         ac.debug("delta", Delta.currentDelta)
         ac.debug("deltaChangeRate", Delta.currentDeltaChangeRate)
-        ac.debug("currentLapTime", car.lapTimeMs)
-        ac.debug("lapProgress", car.splinePosition)
-        ac.debug("wheelsOutside", car.wheelsOutside)
+        ac.debug("currentLapTime", Car.lapTimeMs)
+        ac.debug("lapProgress", Car.splinePosition)
+        ac.debug("wheelsOutside", Car.wheelsOutside)
         ac.debug("isInvalid", CurrentLapIsInvalid)
         ac.debug("comparisonPoints", Config.delta.compareMode == "SESSION" and #bestPosList or #personalBestPosList)
         ac.debug("lastGoodDelta", lastGoodDelta)
-        ac.debug("timeSinceGoodDelta", sim.time - lastGoodDeltaTime)
-        ac.debug("session.laps", session.laps)
-        ac.debug("car.lapCount", car.lapCount)
-        ac.debug("car.splinePosition", car.splinePosition)
-        ac.debug("sim.sessionTimeLeft", sim.sessionTimeLeft)
-        ac.debug("sim.sessionsCount", sim.sessionsCount)
-        ac.debug("sim.currentSessionIndex", sim.currentSessionIndex)
+        ac.debug("timeSinceGoodDelta", Sim.time - lastGoodDeltaTime)
+        ac.debug("session.laps", Session.laps)
+        ac.debug("car.lapCount", Car.lapCount)
+        ac.debug("car.splinePosition", Car.splinePosition)
+        ac.debug("sim.sessionTimeLeft", Sim.sessionTimeLeft)
+        ac.debug("sim.sessionsCount", Sim.sessionsCount)
+        ac.debug("sim.currentSessionIndex", Sim.currentSessionIndex)
 
         -- Tire wear debug information
-        ac.debug("tireWear: FL vKM", car.wheels[ac.Wheel.FrontLeft].tyreVirtualKM)
-        ac.debug("tireWear: FR vKM", car.wheels[ac.Wheel.FrontRight].tyreVirtualKM)
-        ac.debug("tireWear: RL vKM", car.wheels[ac.Wheel.RearLeft].tyreVirtualKM)
-        ac.debug("tireWear: RR vKM", car.wheels[ac.Wheel.RearRight].tyreVirtualKM)
+        ac.debug("tireWear: FL vKM", Car.wheels[ac.Wheel.FrontLeft].tyreVirtualKM)
+        ac.debug("tireWear: FR vKM", Car.wheels[ac.Wheel.FrontRight].tyreVirtualKM)
+        ac.debug("tireWear: RL vKM", Car.wheels[ac.Wheel.RearLeft].tyreVirtualKM)
+        ac.debug("tireWear: RR vKM", Car.wheels[ac.Wheel.RearRight].tyreVirtualKM)
 
         ac.debug("tireWear: FL grip%", GetTireGripFromWear(0))
         ac.debug("tireWear: FR grip%", GetTireGripFromWear(1))
@@ -1412,11 +1412,11 @@ function script.update()
 
         -- Debug the early exit conditions
         local earlyExitReason = ""
-        if car.lapTimeMs <= 500 then
+        if Car.lapTimeMs <= 500 then
             earlyExitReason = "too early in lap"
-        elseif car.splinePosition <= 0.001 then
+        elseif Car.splinePosition <= 0.001 then
             earlyExitReason = "too close to start"
-        elseif car.splinePosition >= 0.999 then
+        elseif Car.splinePosition >= 0.999 then
             earlyExitReason = "too close to end"
         elseif CurrentLapIsInvalid then
             earlyExitReason = "lap invalid"
@@ -1426,16 +1426,16 @@ function script.update()
 
     -- Only update previousLapProgressValue if we have a centerline
     if Delta.trackHasCenterline then
-        previousLapProgressValue = car.splinePosition
+        previousLapProgressValue = Car.splinePosition
     end
 
     -- Track when time expires and store the lap count
-    if sim.raceSessionType == ac.SessionType.Race then
-        local timeLeft = (sim.sessionTimeLeft / 1000)
-        if timeLeft <= 0 and session.hasAdditionalLap then
+    if Sim.raceSessionType == ac.SessionType.Race then
+        local timeLeft = (Sim.sessionTimeLeft / 1000)
+        if timeLeft <= 0 and Session.hasAdditionalLap then
             if not timeExpired then
                 timeExpired = true
-                lapCountWhenTimeExpired = car.lapCount
+                lapCountWhenTimeExpired = Car.lapCount
             end
         else
             timeExpired = false
