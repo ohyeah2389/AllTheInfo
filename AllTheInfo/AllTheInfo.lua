@@ -3,9 +3,9 @@
 
 DEBUG = false
 
-local car = ac.getCar(0)
+local car = ac.getCar(0) or {}
 local sim = ac.getSim()
-local session = ac.getSession(sim.currentSessionIndex)
+local session = ac.getSession(sim.currentSessionIndex) or {}
 CurrentSessionIndex = sim.currentSessionIndex
 Font_whiteRabbit = ui.DWriteFont("fonts/whitrabt.ttf")
 
@@ -444,7 +444,7 @@ function GetTireGripFromWear(wheel)
 
     -- Get the appropriate LUT and peak value based on wheel position
     local isFront = (wheel == 0 or wheel == 1)
-    local wearLUT = isFront and tireWearLUTs.front or tireWearLUTs.rear
+    local wearLUT = isFront and tireWearLUTs.front or tireWearLUTs.rear or {}
     local peakGrip = isFront and tireWearLUTs.frontPeak or tireWearLUTs.rearPeak
 
     -- Get virtual KM for this wheel
@@ -579,7 +579,7 @@ end
 
 local function handleSessionStart(sessionIndex, guardFirstLap)
     CurrentSessionIndex = sessionIndex or sim.currentSessionIndex
-    session = ac.getSession(CurrentSessionIndex)
+    session = ac.getSession(CurrentSessionIndex) or {}
     resetSessionData(guardFirstLap)
 end
 
