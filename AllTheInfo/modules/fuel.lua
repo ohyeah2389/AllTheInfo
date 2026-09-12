@@ -237,25 +237,23 @@ function fuel.calculateRaceEndFuel(car, avgFuelPerLap, remainingLaps)
     return fuelRemaining
 end
 
--- Get fuel status colors
-function fuel.getFuelStatusColors(fuelRemaining, lapsLeft)
-    local textColor = rgbm(1, 1, 1, 1) -- Default white text
-    local bgColor = rgbm(0, 0, 0, 0)   -- Default transparent background
+local COL_FUEL_OK_TEXT = rgbm(1, 1, 1, 1)
+local COL_FUEL_OK_BG = rgbm(0, 0, 0, 0)
+local COL_FUEL_WARN_TEXT = rgbm(0, 0, 0, 1)
+local COL_FUEL_RED_BG = rgbm(1, 0, 0, 0.8)
+local COL_FUEL_YELLOW_BG = rgbm(1, 1, 0, 0.8)
 
+function fuel.getFuelStatusColors(fuelRemaining, lapsLeft)
     if fuelRemaining ~= nil and fuelRemaining < 0 then
-        textColor = rgbm(0, 0, 0, 1) -- Black text
-        bgColor = rgbm(1, 0, 0, 0.8) -- Bright red background
+        return COL_FUEL_WARN_TEXT, COL_FUEL_RED_BG
     elseif lapsLeft ~= nil then
         if lapsLeft < 1 then
-            textColor = rgbm(0, 0, 0, 1) -- Black text
-            bgColor = rgbm(1, 0, 0, 0.8) -- Red background
+            return COL_FUEL_WARN_TEXT, COL_FUEL_RED_BG
         elseif lapsLeft < 2 then
-            textColor = rgbm(0, 0, 0, 1) -- Black text
-            bgColor = rgbm(1, 1, 0, 0.8) -- Yellow background
+            return COL_FUEL_WARN_TEXT, COL_FUEL_YELLOW_BG
         end
     end
-
-    return textColor, bgColor
+    return COL_FUEL_OK_TEXT, COL_FUEL_OK_BG
 end
 
 return fuel

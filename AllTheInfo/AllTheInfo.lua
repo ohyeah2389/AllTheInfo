@@ -855,73 +855,56 @@ local function storeLap()
 end
 
 
-function DrawTextWithBackground(text, size, x, y, width, height, bgColor, textColor, alignment)
-    -- Default to left alignment if not specified
-    alignment = alignment or ui.Alignment.Start
+local _dtwbP1, _dtwbP2 = vec2(), vec2()
+local _colWear, _colTemp, _colPress = rgbm(), rgbm(), rgbm()
 
-    -- Draw background
+function DrawTextWithBackground(text, size, x, y, width, height, bgColor, textColor, alignment)
+    alignment = alignment or ui.Alignment.Start
+    textColor = textColor or rgbm.colors.white
+
     if bgColor then
         if alignment == ui.Alignment.Start then
-            ui.drawRectFilled(vec2(x - 2, y - 2), vec2(x + width - 2, y + height + 2), bgColor, 3)
+            _dtwbP1:set(x - 2, y - 2)
+            _dtwbP2:set(x + width - 2, y + height + 2)
         elseif alignment == ui.Alignment.End then
-            ui.drawRectFilled(vec2(x - width - 2, y - 2), vec2(x + 2, y + height + 2), bgColor, 3)
-        elseif alignment == ui.Alignment.Center then
-            ui.drawRectFilled(vec2(x - width / 2 - 2, y - 2), vec2(x + width / 2 + 2, y + height + 2), bgColor, 3)
+            _dtwbP1:set(x - width - 2, y - 2)
+            _dtwbP2:set(x + 2, y + height + 2)
+        else
+            _dtwbP1:set(x - width / 2 - 2, y - 2)
+            _dtwbP2:set(x + width / 2 + 2, y + height + 2)
         end
+        ui.drawRectFilled(_dtwbP1, _dtwbP2, bgColor, 3)
     end
 
-    -- Draw text with specified alignment
     if alignment == ui.Alignment.End then
-        ui.dwriteDrawTextClipped(
-            text,
-            size,
-            vec2(x - width, y),
-            vec2(x, y + height),
-            alignment,
-            ui.Alignment.Start,
-            false,
-            textColor or rgbm(1, 1, 1, 1)
-        )
+        _dtwbP1:set(x - width, y)
+        _dtwbP2:set(x, y + height)
     else
-        ui.dwriteDrawTextClipped(
-            text,
-            size,
-            vec2(x, y),
-            vec2(x + width, y + height),
-            alignment,
-            ui.Alignment.Start,
-            false,
-            textColor or rgbm(1, 1, 1, 1)
-        )
+        _dtwbP1:set(x, y)
+        _dtwbP2:set(x + width, y + height)
     end
+    ui.dwriteDrawTextClipped(text, size, _dtwbP1, _dtwbP2, alignment, ui.Alignment.Start, false, textColor)
 end
 
 function GetTireWearColor(wear)
-    -- Convert wear from 0-1 to percentage
     local wearPercent = wear * 100
-
-    -- Clear/transparent below threshold
-    if wearPercent < TireWearConfig.thresholds.transparent then
+    local th = TireWearConfig.thresholds
+    if wearPercent < th.transparent then
         return TireWearConfig.colors.transparent
-        -- Fade from transparent to yellow between thresholds
-    elseif wearPercent < TireWearConfig.thresholds.yellow then
-        local t = (wearPercent - TireWearConfig.thresholds.transparent) /
-            (TireWearConfig.thresholds.yellow - TireWearConfig.thresholds.transparent)
-        return rgbm(1, 1, 0, t * 0.5)
-        -- Fade from yellow to red between thresholds
-    elseif wearPercent < TireWearConfig.thresholds.red then
-        local t = (wearPercent - TireWearConfig.thresholds.yellow) /
-            (TireWearConfig.thresholds.red - TireWearConfig.thresholds.yellow)
-        return rgbm(1, 1 - t, 0, 0.5)
-        -- Fade from red to black between thresholds
-    elseif wearPercent < TireWearConfig.thresholds.black then
-        local t = (wearPercent - TireWearConfig.thresholds.red) /
-            (TireWearConfig.thresholds.black - TireWearConfig.thresholds.red)
-        return rgbm(1 - t, 0, 0, 0.5 + (t * 0.5))
-        -- Full black above threshold
-    else
-        return TireWearConfig.colors.black
+    elseif wearPercent < th.yellow then
+        local t = (wearPercent - th.transparent) / (th.yellow - th.transparent)
+        _colWear.r, _colWear.g, _colWear.b, _colWear.mult = 1, 1, 0, t * 0.5
+        return _colWear
+    elseif wearPercent < th.red then
+        local t = (wearPercent - th.yellow) / (th.red - th.yellow)
+        _colWear.r, _colWear.g, _colWear.b, _colWear.mult = 1, 1 - t, 0, 0.5
+        return _colWear
+    elseif wearPercent < th.black then
+        local t = (wearPercent - th.red) / (th.black - th.red)
+        _colWear.r, _colWear.g, _colWear.b, _colWear.mult = 1 - t, 0, 0, 0.5 + t * 0.5
+        return _colWear
     end
+    return TireWearConfig.colors.black
 end
 
 function GetFlashState(setTime)
@@ -934,90 +917,39 @@ function GetFlashState(setTime)
 end
 
 function GetTempColor(temp, optimalTemp)
-    -- Calculate temperature ratio
     local ratio = temp / optimalTemp
-
-    -- Create color based on temperature ratio
-    if ratio < TireTempThresholds.ambient then
-        -- Purple (cold/ambient)
-        return TireTempColors.ambient
-    elseif ratio < TireTempThresholds.cold then
-        -- Interpolate between purple and blue
-        local t = (ratio - TireTempThresholds.ambient) / (TireTempThresholds.cold - TireTempThresholds.ambient)
-        return rgbm(
-            TireTempColors.ambient.r * (1 - t) + TireTempColors.cold.r * t,
-            TireTempColors.ambient.g * (1 - t) + TireTempColors.cold.g * t,
-            TireTempColors.ambient.b * (1 - t) + TireTempColors.cold.b * t,
-            1
-        )
-    elseif ratio < (1 - TireTempThresholds.optimal) then
-        -- Interpolate between blue and green
-        local t = (ratio - TireTempThresholds.cold) / ((1 - TireTempThresholds.optimal) - TireTempThresholds.cold)
-        return rgbm(
-            TireTempColors.cold.r * (1 - t) + TireTempColors.optimal.r * t,
-            TireTempColors.cold.g * (1 - t) + TireTempColors.optimal.g * t,
-            TireTempColors.cold.b * (1 - t) + TireTempColors.optimal.b * t,
-            1
-        )
-    elseif ratio <= (1 + TireTempThresholds.optimal) then
-        -- Green (optimal)
-        return TireTempColors.optimal
-    elseif ratio < TireTempThresholds.hot then
-        -- Interpolate between green and yellow
-        local t = (ratio - (1 + TireTempThresholds.optimal)) / (TireTempThresholds.hot - (1 + TireTempThresholds.optimal))
-        return rgbm(
-            TireTempColors.optimal.r * (1 - t) + TireTempColors.hot.r * t,
-            TireTempColors.optimal.g * (1 - t) + TireTempColors.hot.g * t,
-            TireTempColors.optimal.b * (1 - t) + TireTempColors.hot.b * t,
-            1
-        )
-    elseif ratio < TireTempThresholds.explosion then
-        -- Interpolate between yellow and red
-        local t = (ratio - TireTempThresholds.hot) / (TireTempThresholds.explosion - TireTempThresholds.hot)
-        return rgbm(
-            TireTempColors.hot.r * (1 - t) + TireTempColors.veryhot.r * t,
-            TireTempColors.hot.g * (1 - t) + TireTempColors.veryhot.g * t,
-            TireTempColors.hot.b * (1 - t) + TireTempColors.veryhot.b * t,
-            1
-        )
-    else
-        -- Interpolate from red to black for explosion temperature
-        local t = math.min((ratio - TireTempThresholds.explosion) / 0.1, 1) -- Adjust 0.1 to control fade speed
-        return rgbm(
-            TireTempColors.veryhot.r * (1 - t) + TireTempColors.explosion.r * t,
-            TireTempColors.veryhot.g * (1 - t) + TireTempColors.explosion.g * t,
-            TireTempColors.veryhot.b * (1 - t) + TireTempColors.explosion.b * t,
-            1
-        )
+    local th, c = TireTempThresholds, TireTempColors
+    if ratio < th.ambient then
+        return c.ambient
+    elseif ratio < th.cold then
+        return _colTemp:setLerp(c.ambient, c.cold, (ratio - th.ambient) / (th.cold - th.ambient))
+    elseif ratio < (1 - th.optimal) then
+        return _colTemp:setLerp(c.cold, c.optimal, (ratio - th.cold) / ((1 - th.optimal) - th.cold))
+    elseif ratio <= (1 + th.optimal) then
+        return c.optimal
+    elseif ratio < th.hot then
+        return _colTemp:setLerp(c.optimal, c.hot, (ratio - (1 + th.optimal)) / (th.hot - (1 + th.optimal)))
+    elseif ratio < th.explosion then
+        return _colTemp:setLerp(c.hot, c.veryhot, (ratio - th.hot) / (th.explosion - th.hot))
     end
+    return _colTemp:setLerp(c.veryhot, c.explosion, math.min((ratio - th.explosion) / 0.1, 1))
 end
 
 function GetPressureColor(current, optimal)
     local delta = current - optimal
-
     if math.abs(delta) < optimalPressureRange then
         return PressureColors.optimal
     elseif delta < 0 then
-        -- Interpolate between purple and green
-        local t = math.min(math.abs(delta) - optimalPressureRange, pressureTransitionRange) / pressureTransitionRange
-        t = math.smoothstep(t)
-        return rgbm(
-            PressureColors.low.r * t + PressureColors.optimal.r * (1 - t),
-            PressureColors.low.g * t + PressureColors.optimal.g * (1 - t),
-            PressureColors.low.b * t + PressureColors.optimal.b * (1 - t),
-            1
-        )
-    else
-        -- Interpolate between green and red
-        local t = math.min(delta - optimalPressureRange, pressureTransitionRange) / pressureTransitionRange
-        t = math.smoothstep(t)
-        return rgbm(
-            PressureColors.optimal.r * (1 - t) + PressureColors.high.r * t,
-            PressureColors.optimal.g * (1 - t) + PressureColors.high.g * (1 - t),
-            PressureColors.optimal.b * (1 - t) + PressureColors.high.b * t,
-            1
-        )
+        local t = math.smoothstep(math.min(math.abs(delta) - optimalPressureRange, pressureTransitionRange) / pressureTransitionRange)
+        return _colPress:setLerp(PressureColors.optimal, PressureColors.low, t)
     end
+    local t = math.smoothstep(math.min(delta - optimalPressureRange, pressureTransitionRange) / pressureTransitionRange)
+    local o, h = PressureColors.optimal, PressureColors.high
+    _colPress.r = o.r * (1 - t) + h.r * t
+    _colPress.g = o.g * (1 - t) + h.g * (1 - t)
+    _colPress.b = o.b * (1 - t) + h.b * t
+    _colPress.mult = 1
+    return _colPress
 end
 
 function EstimateRemainingLaps()
