@@ -180,6 +180,8 @@ local bestPosList = {}
 local bestTimeList = {}
 local personalBestPosList = {}
 local personalBestTimeList = {}
+local pendingPbSave = false
+local pendingTrackSave = false
 local prevt = 0
 local prevt2 = 0
 local trendBuffer = {}
@@ -475,28 +477,38 @@ trackDataFile = string.format("%s/lua/AllTheInfo/track_records/%s.ini", ac.getFo
 personalBestDir = string.format("%s/lua/AllTheInfo/personal_best/%s", ac.getFolder(ac.FolderID.ACApps), ac.getCarID(0))
 
 
-function table.shallow_copy(t)
-    local t2 = {}
-    for k, v in pairs(t) do
-        t2[k] = v
+local PB_SAVE_POINTS = 200
+
+local function splitNums(s)
+    local t = {}
+    if not s or s == "" then return t end
+    local i = 1
+    for v in s:gmatch("[^,]+") do
+        t[i] = tonumber(v)
+        i = i + 1
     end
-    return t2
+    return t
+end
+
+local function sampleLists(pos, times, maxPts)
+    local n = math.min(#pos, #times)
+    local outP, outT = {}, {}
+    if n <= 0 then return outP, outT end
+    local count = math.min(n, maxPts)
+    local span = count == 1 and 0 or ((n - 1) / (count - 1))
+    for i = 1, count do
+        local src = 1 + math.floor((i - 1) * span + 0.5)
+        outP[i] = pos[src]
+        outT[i] = times[src]
+    end
+    return outP, outT
 end
 
 local function loadTrackRecords()
-    -- Create directories if they don't exist
-    local baseDir = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo'
-    local recordsDir = baseDir .. '/track_records'
-
-    if not io.exists(baseDir) then
-        os.execute('mkdir "' .. baseDir .. '"')
-    end
-    if not io.exists(recordsDir) then
-        os.execute('mkdir "' .. recordsDir .. '"')
-    end
+    io.createFileDir(trackDataFile)
 
     -- Try to load existing records
-    if io.exists(trackDataFile) then
+    if io.fileExists(trackDataFile) then
         local records = {}
         local ini = ac.INIConfig.load(trackDataFile)
 
@@ -590,107 +602,103 @@ end)
 handleSessionStart(CurrentSessionIndex, false)
 
 
+local function pbFilename()
+    return string.format("%s/%s.txt", personalBestDir, GetTrackIdentifier())
+end
+
 local function savePersonalBest()
-    -- Create directories if needed
-    local baseDir = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo'
-    local fullDir = personalBestDir
-
-    if not io.exists(baseDir) then
-        os.execute('mkdir "' .. baseDir .. '"')
-    end
-    if not io.exists(fullDir) then
-        os.execute('mkdir "' .. fullDir .. '"')
-    end
-
-    -- Generate filename
-    local filename = string.format("%s/%s.txt", fullDir, GetTrackIdentifier())
-
-    -- Create simple text file with data
-    local file = io.open(filename, "w")
-    if file then
-        -- Write metadata
-        file:write(string.format("TIME=%d\n", PersonalBestLapValue))   -- Changed to use personalBestLapValue
-        file:write(string.format("DATE=%s\n", os.date("%Y-%m-%d %H:%M:%S")))
-        file:write(string.format("POINTS=%d\n", #personalBestPosList)) -- Changed to use personalBestPosList
-        -- Add fuel usage data
-        file:write(string.format("FUEL=%.3f\n", FuelTracking.lastLapFuelUsed))
-
-        -- Write positions - make sure we have data to write
-        if #personalBestPosList > 0 then                 -- Changed to use personalBestPosList
-            file:write("POSITIONS\n")
-            for i, pos in ipairs(personalBestPosList) do -- Changed to use personalBestPosList
-                file:write(string.format("%d=%f\n", i, pos))
-            end
-        end
-
-        -- Write times - make sure we have data to write
-        if #personalBestTimeList > 0 then                  -- Changed to use personalBestTimeList
-            file:write("TIMES\n")
-            for i, time in ipairs(personalBestTimeList) do -- Changed to use personalBestTimeList
-                file:write(string.format("%d=%d\n", i, time))
-            end
-        end
-
-        file:close()
-        if DEBUG then
-            ac.log("Saved personal best with positions:" .. #personalBestPosList) -- Changed debug output
-            ac.log("Saved personal best with times:" .. #personalBestTimeList)    -- Changed debug output
-        end
+    local pos, times = sampleLists(personalBestPosList, personalBestTimeList, PB_SAVE_POINTS)
+    io.saveAsync(pbFilename(), stringify.binary({
+        t = PersonalBestLapValue,
+        f = FuelTracking.personalBestFuelUsage or FuelTracking.lastLapFuelUsed or 0,
+        p = pos,
+        m = times
+    }))
+    if DEBUG then
+        ac.log("Saved personal best with positions:" .. #pos)
+        ac.log("Saved personal best with times:" .. #times)
     end
 end
 
+local function saveTrackRecords()
+    local parts = {}
+    for track, data in pairs(TrackRecords) do
+        if type(data) == 'table' and type(data.time) == 'number' then
+            parts[#parts + 1] = "[" .. track .. "]\ntime=" .. tostring(data.time) .. "\ndate=" .. (data.date or "") .. "\n"
+        end
+    end
+    io.saveAsync(trackDataFile, table.concat(parts))
+end
+
+local function flushDeferredSaves(force)
+    if not pendingPbSave and not pendingTrackSave then return end
+    if not force and Car.lapTimeMs < 2000 then return end
+    if pendingPbSave then
+        pendingPbSave = false
+        savePersonalBest()
+        return
+    end
+    if pendingTrackSave then
+        pendingTrackSave = false
+        saveTrackRecords()
+    end
+end
 
 local function loadPersonalBest()
-    local filename = string.format("%s/%s.txt", personalBestDir, GetTrackIdentifier())
+    local filename = pbFilename()
+    io.createFileDir(filename)
+    local content = io.load(filename)
+    if not content or content == "" then return end
 
-    if io.exists(filename) then
-        local file = io.open(filename, "r")
-        if file then
-            -- Clear existing data
-            personalBestPosList = {}
-            personalBestTimeList = {}
-            FuelTracking.personalBestFuelUsage = nil
+    personalBestPosList = {}
+    personalBestTimeList = {}
+    FuelTracking.personalBestFuelUsage = nil
 
-            local section = ""
-            for line in file:lines() do
-                -- Check for metadata
-                local time = line:match("TIME=(%d+)")
-                if time then
-                    PersonalBestLapValue = tonumber(time)
-                end
-
-                -- Check for fuel usage data
-                local fuel = line:match("FUEL=([%d%.]+)")
-                if fuel then
-                    FuelTracking.personalBestFuelUsage = tonumber(fuel)
-                end
-
-                -- Track which section we're in
-                if line == "POSITIONS" then
-                    section = "positions"
-                elseif line == "TIMES" then
-                    section = "times"
-                else
-                    -- Parse data lines
-                    local index, value = line:match("(%d+)=([%d%.]+)")
-                    if index and value then
-                        if section == "positions" then
-                            personalBestPosList[tonumber(index)] = tonumber(value)
-                        elseif section == "times" then
-                            personalBestTimeList[tonumber(index)] = tonumber(value)
-                        end
+    local head = content:sub(1, 6)
+    if head == "ATIPB2" then
+        local time = content:match("TIME=(%d+)")
+        if time then PersonalBestLapValue = tonumber(time) end
+        local fuel = content:match("FUEL=([%-%d%.]+)")
+        if fuel then FuelTracking.personalBestFuelUsage = tonumber(fuel) end
+        personalBestPosList = splitNums(content:match("\nPOS=([^\r\n]*)"))
+        personalBestTimeList = splitNums(content:match("\nTMS=([^\r\n]*)"))
+    elseif head:sub(1, 5) == "TIME=" then
+        local section = ""
+        for line in content:gmatch("[^\r\n]+") do
+            local time = line:match("TIME=(%d+)")
+            if time then PersonalBestLapValue = tonumber(time) end
+            local fuel = line:match("FUEL=([%d%.]+)")
+            if fuel then FuelTracking.personalBestFuelUsage = tonumber(fuel) end
+            if line == "POSITIONS" then
+                section = "positions"
+            elseif line == "TIMES" then
+                section = "times"
+            else
+                local index, value = line:match("(%d+)=([%d%.]+)")
+                if index and value then
+                    if section == "positions" then
+                        personalBestPosList[tonumber(index)] = tonumber(value)
+                    elseif section == "times" then
+                        personalBestTimeList[tonumber(index)] = tonumber(value)
                     end
                 end
             end
-
-            file:close()
-            if DEBUG then
-                ac.log("Loaded personal best:" .. PersonalBestLapValue)
-                ac.log("Loaded positions:" .. #personalBestPosList)
-                ac.log("Loaded times:" .. #personalBestTimeList)
-                ac.log("Loaded fuel usage:" .. (FuelTracking.personalBestFuelUsage or 0))
-            end
         end
+    else
+        local parsed = stringify.binary.tryParse(content, false)
+        if type(parsed) == "table" and parsed.t then
+            PersonalBestLapValue = tonumber(parsed.t) or 0
+            FuelTracking.personalBestFuelUsage = tonumber(parsed.f)
+            personalBestPosList = parsed.p or {}
+            personalBestTimeList = parsed.m or {}
+        end
+    end
+
+    if DEBUG then
+        ac.log("Loaded personal best:" .. PersonalBestLapValue)
+        ac.log("Loaded positions:" .. #personalBestPosList)
+        ac.log("Loaded times:" .. #personalBestTimeList)
+        ac.log("Loaded fuel usage:" .. (FuelTracking.personalBestFuelUsage or 0))
     end
 end
 
@@ -789,62 +797,47 @@ local function storeLap()
     local lapIsValid = (not CurrentLapIsInvalid) and (LastLapValue > 0)
     local hasLapData = #posList > 10
 
-    local posListCopy = hasLapData and table.shallow_copy(posList) or nil
-    local timeListCopy = hasLapData and table.shallow_copy(timeList) or nil
-
     if lapIsValid then
         if DEBUG then
             ac.log("Lap valid, storing data (hasLapData=" .. tostring(hasLapData) .. ")")
         end
 
-        -- Reset flags first
         LastLapWasSessionBest = false
         LastLapWasPersonalBest = false
 
-        -- Update session best if this lap is faster
         if (BestLapValue == 0) or (LastLapValue < BestLapValue) then
-            bestPosList = posListCopy or {}
-            bestTimeList = timeListCopy or {}
+            if hasLapData then
+                bestPosList, bestTimeList = posList, timeList
+            end
             BestLapValue = LastLapValue
             LastLapWasSessionBest = true
             SessionBestWasSetTime = os.clock()
             UIstate.sessionBestFlashStartTime = os.clock()
         end
 
-        -- Update personal best if this lap is faster
         if (PersonalBestLapValue == 0) or (LastLapValue < PersonalBestLapValue) then
-            personalBestPosList = posListCopy or {}
-            personalBestTimeList = timeListCopy or {}
+            if hasLapData then
+                personalBestPosList, personalBestTimeList = posList, timeList
+            end
             PersonalBestLapValue = LastLapValue
+            FuelTracking.personalBestFuelUsage = FuelTracking.lastLapFuelUsed
             LastLapWasPersonalBest = true
             PersonalBestWasSetTime = os.clock()
             UIstate.personalBestFlashStartTime = os.clock()
-            savePersonalBest() -- Save to file
+            pendingPbSave = true
         end
 
-        -- Update all-time best if this lap is faster
         if AllTimeBestLap == 0 or LastLapValue < AllTimeBestLap then
             AllTimeBestLap = LastLapValue
             TrackRecords[GetTrackIdentifier()] = {
                 time = LastLapValue,
                 date = os.date("%Y-%m-%d %H:%M:%S")
             }
-            -- Save to INI file
-            local success, ini = pcall(function()
-                local newIni = ac.INIConfig(ac.INIFormat.Default, {})
-                for track, data in pairs(TrackRecords) do
-                    if type(data) == 'table' and type(data.time) == 'number' then
-                        newIni:set(track, 'time', tostring(data.time))
-                        newIni:set(track, 'date', data.date or '')
-                    end
-                end
-                newIni:save(trackDataFile)
-                return newIni
-            end)
+            pendingTrackSave = true
         end
     end
 
-    -- Always reset current lap data to avoid cross-lap contamination
+    -- Drop current-lap tables (best lists keep the previous references)
     posList = {}
     timeList = {}
     previousLapProgressValue = 0
@@ -1004,39 +997,27 @@ local function convertValue(value, valueType)
 end
 
 function SaveSettings()
-    -- Create directory if it doesn't exist
-    local dir = ac.getFolder(ac.FolderID.ACApps) .. '/lua/AllTheInfo'
-    if not io.exists(dir) then
-        os.execute('mkdir "' .. dir .. '"')
-    end
-
-    local file = io.open(settingsFile, "w")
-    if file then
-        for key, config in pairs(settingsConfig) do
-            local value = getConfigValue(config.path)
-            if value ~= nil then
-                file:write(string.format("%s=%s\n", key, tostring(value)))
-            end
+    local chunks = {}
+    for key, config in pairs(settingsConfig) do
+        local value = getConfigValue(config.path)
+        if value ~= nil then
+            chunks[#chunks + 1] = string.format("%s=%s\n", key, tostring(value))
         end
-        file:close()
     end
+    io.createFileDir(settingsFile)
+    io.save(settingsFile, table.concat(chunks), true)
 end
 
 local function loadSettings()
-    if io.exists(settingsFile) then
-        local file = io.open(settingsFile, "r")
-        if file then
-            for line in file:lines() do
-                local key, value = line:match("(.+)=(.+)")
-                if key and value then
-                    local config = settingsConfig[key]
-                    if config then
-                        local convertedValue = convertValue(value, config.type)
-                        setConfigValue(config.path, convertedValue)
-                    end
-                end
+    local content = io.load(settingsFile)
+    if not content then return end
+    for line in content:gmatch("[^\r\n]+") do
+        local key, value = line:match("(.+)=(.+)")
+        if key and value then
+            local config = settingsConfig[key]
+            if config then
+                setConfigValue(config.path, convertValue(value, config.type))
             end
-            file:close()
         end
     end
 end
@@ -1182,9 +1163,9 @@ function script.windowSettings(dt)
             ui.newLine()
             if ui.button("Yes") then
                 -- Delete PB file if it exists, use .txt extension to match savePersonalBest()
-                local pbFile = string.format("%s/%s.txt", personalBestDir, GetTrackIdentifier())
-                if io.exists(pbFile) then
-                    os.remove(pbFile)
+                local pbFile = pbFilename()
+                if io.fileExists(pbFile) then
+                    io.deleteFile(pbFile)
                     -- Reset all PB-related data
                     PersonalBestLapValue = 0
                     personalBestPosList = {}
@@ -1219,6 +1200,7 @@ end
 ---@diagnostic disable: duplicate-set-field
 function script.update()
     local sessionActive = Sim.isSessionStarted and not Sim.isSessionFinished
+    flushDeferredSaves(not sessionActive)
     if not sessionActive then
         Delta.currentDelta, Delta.currentDeltaChangeRate = nil, nil
         return
