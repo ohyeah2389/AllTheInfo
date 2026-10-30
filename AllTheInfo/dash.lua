@@ -575,7 +575,7 @@ function dash.draw()
     if avgFuelPerLap > 0 then
         local lapsLeft = Car.fuel / avgFuelPerLap
         possibleLaps = string.format("%.1f", lapsLeft)
-        possibleLapsColor, possibleLapsBg = Fuel.getFuelStatusColors(nil, lapsLeft)
+        possibleLapsColor, possibleLapsBg = Fuel.getLapFuelColors(lapsLeft)
     end
     DrawTextWithBackground(
         string.format("LPS%6s LP", possibleLaps):gsub("^%s+", ""),
@@ -585,7 +585,7 @@ function dash.draw()
     remainingLaps = EstimateRemainingLaps()
     local fuelRemaining = Fuel.calculateRaceEndFuel(Car, avgFuelPerLap, remainingLaps)
     local fuelRemainingText = fuelRemaining and string.format("END %6.2f L", fuelRemaining):gsub("^%s+", "") or "END  --.-- L"
-    local fuelTextColor, fuelBgColor = Fuel.getFuelStatusColors(fuelRemaining, remainingLaps)
+    local fuelTextColor, fuelBgColor = Fuel.getEndFuelColors(fuelRemaining)
     DrawTextWithBackground(fuelRemainingText, 16, 690, 130, 110, 12, fuelBgColor, fuelTextColor, ui.Alignment.End)
 
     -- MARK: Buttons

@@ -243,15 +243,18 @@ local COL_FUEL_WARN_TEXT = rgbm(0, 0, 0, 1)
 local COL_FUEL_RED_BG = rgbm(1, 0, 0, 0.8)
 local COL_FUEL_YELLOW_BG = rgbm(1, 1, 0, 0.8)
 
-function fuel.getFuelStatusColors(fuelRemaining, lapsLeft)
+function fuel.getLapFuelColors(lapsLeft)
+    if lapsLeft ~= nil and lapsLeft < 1 then
+        return COL_FUEL_WARN_TEXT, COL_FUEL_RED_BG
+    elseif lapsLeft ~= nil and lapsLeft < 2 then
+        return COL_FUEL_WARN_TEXT, COL_FUEL_YELLOW_BG
+    end
+    return COL_FUEL_OK_TEXT, COL_FUEL_OK_BG
+end
+
+function fuel.getEndFuelColors(fuelRemaining)
     if fuelRemaining ~= nil and fuelRemaining < 0 then
         return COL_FUEL_WARN_TEXT, COL_FUEL_RED_BG
-    elseif lapsLeft ~= nil then
-        if lapsLeft < 1 then
-            return COL_FUEL_WARN_TEXT, COL_FUEL_RED_BG
-        elseif lapsLeft < 2 then
-            return COL_FUEL_WARN_TEXT, COL_FUEL_YELLOW_BG
-        end
     end
     return COL_FUEL_OK_TEXT, COL_FUEL_OK_BG
 end
